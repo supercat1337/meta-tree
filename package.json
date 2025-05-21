@@ -1,0 +1,22 @@
+{
+  "name": "@supercat1337/meta-tree",
+  "version": "1.0.0",
+  "description": "A JavaScript library for creating, managing, and serializing hierarchical data structures with fields, sections, and records.",
+  "license": "MIT",
+  "author": "Supercat1337",
+  "type": "module",
+  "main": "index.js",
+  "homepage": "https://github.com/supercat1337/meta-tree",
+  "repository": {
+    "url": "https://github.com/supercat1337/meta-tree"
+  },
+  "scripts": {
+    "preinstall": "npm i -g esbuild && npm i -g rollup",
+    "build": "npm run remove_type_files && npm run build_esm && npm run build_bundle_esm && npm run build_bundle_esm_min && npm run create_types",
+    "build_bundle_esm_min": "esbuild --minify --bundle --platform=neutral --legal-comments=none ./src/index.js --outfile=./dist/meta-tree.bundle.esm.min.js",
+    "build_bundle_esm": "esbuild --bundle --platform=neutral --legal-comments=none ./src/index.js --outfile=./dist/meta-tree.bundle.esm.js",
+    "build_esm": "rollup ./src/index.js --file ./dist/meta-tree.esm.js --format es",
+    "create_types": "npx -p typescript tsc --project my.tsconfig.types.json",
+    "remove_type_files": "del /q *.d.ts *.d.ts.map && cd dist && del /s /q *.d.ts *.d.ts.map && cd .."
+  }
+}

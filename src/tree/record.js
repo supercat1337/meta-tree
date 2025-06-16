@@ -2,6 +2,7 @@
 
 import { Field } from "./field.js";
 import { Section } from "./section.js";
+import { getVerbFromActionName } from "../tools/tools.js";
 
 export class Record {
     /** @type {string} */
@@ -9,6 +10,8 @@ export class Record {
     /** @type {string|null} */
     propertyName;
     /** @type {string|null} */
+    actionName;
+    /** @type {"get"|"set"|"add"|"delete"|"list"|"check"|null} */
     verb;
 
     /** @type {Map<string, Section>} */
@@ -23,13 +26,20 @@ export class Record {
      * Creates a new Record.
      * @param {string} entityName
      * @param {string|null} propertyName
-     * @param {string|null} verb
+     * @param {string|null} actionName
      * @param {string|null} description
      */
-    constructor(entityName, propertyName, verb, description = null) {
+    constructor(
+        entityName,
+        propertyName,
+        actionName = null,
+        description = null
+    ) {
         this.entityName = entityName;
         this.propertyName = propertyName;
-        this.verb = verb;
+        this.actionName = actionName;
+
+        this.verb = getVerbFromActionName(actionName);
 
         if (/\s/.test(entityName))
             throw new Error(`Entity name cannot contain spaces: ${entityName}`);
@@ -44,11 +54,6 @@ export class Record {
 
         if (propertyName && propertyName.length === 0)
             throw new Error("Property name cannot be empty");
-
-        if (verb && /\s/.test(verb))
-            throw new Error(`Verb cannot contain spaces: ${verb}`);
-
-        if (verb && verb.length === 0) throw new Error("Verb cannot be empty");
 
         this.sections = new Map();
 
@@ -66,7 +71,7 @@ export class Record {
     getFullName() {
         let name = this.entityName;
         if (this.propertyName) name += "." + this.propertyName;
-        if (this.verb) name += "." + this.verb;
+        if (this.actionName) name += "." + this.actionName;
         return name;
     }
 
@@ -241,6 +246,7 @@ export class Record {
             name: this.getFullName(),
             entityName: this.entityName,
             propertyName: this.propertyName,
+            actionName: this.actionName,
             verb: this.verb,
             description: this.description,
             sections: Array.from(this.sections.values()).map((section) =>

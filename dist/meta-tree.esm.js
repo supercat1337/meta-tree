@@ -231,6 +231,28 @@ class Section {
 
 // @ts-check
 
+/**
+ * Attempts to determine the verb of an action from its name.
+ * @param {string} actionName - The name of the action.
+ * @returns {"get"|"set"|"add"|"delete"|"list"|"check"|null} The verb of the action, or null if it could not be determined.
+ */
+function getVerbFromActionName(actionName) {
+    if (actionName === null) return null;
+    if (!actionName) return null;
+
+    actionName = actionName.trim();
+
+    if (actionName.startsWith("get")) return "get";
+    else if (actionName.startsWith("set")) return "set";
+    else if (actionName.startsWith("add")) return "add";
+    else if (actionName.startsWith("delete")) return "delete";
+    else if (actionName.startsWith("list")) return "list";
+    else if (actionName.startsWith("check")) return "check";
+    else return "check";
+}
+
+// @ts-check
+
 
 class Record {
     /** @type {string} */
@@ -238,6 +260,8 @@ class Record {
     /** @type {string|null} */
     propertyName;
     /** @type {string|null} */
+    actionName;
+    /** @type {"get"|"set"|"add"|"delete"|"list"|"check"|null} */
     verb;
 
     /** @type {Map<string, Section>} */
@@ -252,13 +276,20 @@ class Record {
      * Creates a new Record.
      * @param {string} entityName
      * @param {string|null} propertyName
-     * @param {string|null} verb
+     * @param {string|null} actionName
      * @param {string|null} description
      */
-    constructor(entityName, propertyName, verb, description = null) {
+    constructor(
+        entityName,
+        propertyName,
+        actionName = null,
+        description = null
+    ) {
         this.entityName = entityName;
         this.propertyName = propertyName;
-        this.verb = verb;
+        this.actionName = actionName;
+
+        this.verb = getVerbFromActionName(actionName);
 
         if (/\s/.test(entityName))
             throw new Error(`Entity name cannot contain spaces: ${entityName}`);
@@ -273,11 +304,6 @@ class Record {
 
         if (propertyName && propertyName.length === 0)
             throw new Error("Property name cannot be empty");
-
-        if (verb && /\s/.test(verb))
-            throw new Error(`Verb cannot contain spaces: ${verb}`);
-
-        if (verb && verb.length === 0) throw new Error("Verb cannot be empty");
 
         this.sections = new Map();
 
@@ -295,7 +321,7 @@ class Record {
     getFullName() {
         let name = this.entityName;
         if (this.propertyName) name += "." + this.propertyName;
-        if (this.verb) name += "." + this.verb;
+        if (this.actionName) name += "." + this.actionName;
         return name;
     }
 
@@ -470,6 +496,7 @@ class Record {
             name: this.getFullName(),
             entityName: this.entityName,
             propertyName: this.propertyName,
+            actionName: this.actionName,
             verb: this.verb,
             description: this.description,
             sections: Array.from(this.sections.values()).map((section) =>
@@ -492,17 +519,22 @@ class Tree {
      * Adds a new record to the tree.
      * @param {string} entityName - The name of the entity for the record.
      * @param {string|null} propertyName - The name of the property for the record, or null if not applicable.
-     * @param {string|null} verb - The verb associated with the record, or null if not applicable.
+     * @param {string|null} actionName - The actionName associated with the record, or null if not applicable.
      * @param {string|null} description - The description of the record, or null if not applicable.
      * @returns {Record} The newly created record.
      */
     addRecord(
         entityName,
         propertyName = null,
-        verb = null,
+        actionName = null,
         description = null
     ) {
-        let record = new Record(entityName, propertyName, verb, description);
+        let record = new Record(
+            entityName,
+            propertyName,
+            actionName,
+            description
+        );
         let fullName = record.getFullName();
 
         if (this.records.has(fullName))
@@ -612,10 +644,10 @@ function isSectionDeclaration(line) {
 /**
  * Parses a single record declaration line into a record object.
  * @param {string} line The record declaration line to parse.
- * @returns {{entityName: string, propertyName: string|null, verb: string|null, description: string|null}} An object with the following properties:
+ * @returns {{entityName: string, propertyName: string|null, actionName: string|null, description: string|null}} An object with the following properties:
  *     entityName: The name of the entity.
  *     propertyName: The name of the property, or null if not applicable.
- *     verb: The verb associated with the record, or null if not applicable.
+ *     actionName: The actionName associated with the record, or null if not applicable.
  *     description: The description of the record, or null if not applicable.
  */
 function parseRecordDeclaration(line) {
@@ -629,13 +661,14 @@ function parseRecordDeclaration(line) {
     let entityName = nameParts[0];
     /** @type {string|null} */
     let propertyName = null;
+
     /** @type {string|null} */
-    let verb = null;
+    let actionName = null;
 
     nameParts.shift();
 
     if (nameParts.length > 0) {
-        verb = nameParts[nameParts.length - 1];
+        actionName = nameParts[nameParts.length - 1];
         nameParts.pop();
     }
 
@@ -643,7 +676,7 @@ function parseRecordDeclaration(line) {
         propertyName = nameParts.join(".");
     }
 
-    return { entityName, propertyName, verb, description };
+    return { entityName, propertyName, actionName, description };
 }
 
 /**
@@ -768,12 +801,12 @@ function treeFromString(treeString) {
         if (line.trim() === "") continue;
 
         if (isRecordDeclaration(line)) {
-            let { entityName, propertyName, verb, description } =
+            let { entityName, propertyName, actionName, description } =
                 parseRecordDeclaration(line);
             currentRecord = tree.addRecord(
                 entityName,
                 propertyName,
-                verb,
+                actionName,
                 description
             );
 

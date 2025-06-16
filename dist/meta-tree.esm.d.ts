@@ -51,16 +51,18 @@ export class Record {
      * Creates a new Record.
      * @param {string} entityName
      * @param {string|null} propertyName
-     * @param {string|null} verb
+     * @param {string|null} actionName
      * @param {string|null} description
      */
-    constructor(entityName: string, propertyName: string | null, verb: string | null, description?: string | null);
+    constructor(entityName: string, propertyName: string | null, actionName?: string | null, description?: string | null);
     /** @type {string} */
     entityName: string;
     /** @type {string|null} */
     propertyName: string | null;
     /** @type {string|null} */
-    verb: string | null;
+    actionName: string | null;
+    /** @type {"get"|"set"|"add"|"delete"|"list"|"check"|null} */
+    verb: "get" | "set" | "add" | "delete" | "list" | "check" | null;
     /** @type {Map<string, Section>} */
     sections: Map<string, Section>;
     /** @type {Section} */
@@ -218,11 +220,11 @@ export class Tree {
      * Adds a new record to the tree.
      * @param {string} entityName - The name of the entity for the record.
      * @param {string|null} propertyName - The name of the property for the record, or null if not applicable.
-     * @param {string|null} verb - The verb associated with the record, or null if not applicable.
+     * @param {string|null} actionName - The actionName associated with the record, or null if not applicable.
      * @param {string|null} description - The description of the record, or null if not applicable.
      * @returns {Record} The newly created record.
      */
-    addRecord(entityName: string, propertyName?: string | null, verb?: string | null, description?: string | null): Record;
+    addRecord(entityName: string, propertyName?: string | null, actionName?: string | null, description?: string | null): Record;
     /**
      * Checks if a record exists in the tree by its full name.
      * @param {string} recordFullName - The full name of the record to check.

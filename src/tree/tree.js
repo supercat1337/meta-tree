@@ -12,17 +12,22 @@ class Tree {
      * Adds a new record to the tree.
      * @param {string} entityName - The name of the entity for the record.
      * @param {string|null} propertyName - The name of the property for the record, or null if not applicable.
-     * @param {string|null} verb - The verb associated with the record, or null if not applicable.
+     * @param {string|null} actionName - The actionName associated with the record, or null if not applicable.
      * @param {string|null} description - The description of the record, or null if not applicable.
      * @returns {Record} The newly created record.
      */
     addRecord(
         entityName,
         propertyName = null,
-        verb = null,
+        actionName = null,
         description = null
     ) {
-        let record = new Record(entityName, propertyName, verb, description);
+        let record = new Record(
+            entityName,
+            propertyName,
+            actionName,
+            description
+        );
         let fullName = record.getFullName();
 
         if (this.records.has(fullName))

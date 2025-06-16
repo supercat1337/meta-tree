@@ -25,10 +25,10 @@ function isSectionDeclaration(line) {
 /**
  * Parses a single record declaration line into a record object.
  * @param {string} line The record declaration line to parse.
- * @returns {{entityName: string, propertyName: string|null, verb: string|null, description: string|null}} An object with the following properties:
+ * @returns {{entityName: string, propertyName: string|null, actionName: string|null, description: string|null}} An object with the following properties:
  *     entityName: The name of the entity.
  *     propertyName: The name of the property, or null if not applicable.
- *     verb: The verb associated with the record, or null if not applicable.
+ *     actionName: The actionName associated with the record, or null if not applicable.
  *     description: The description of the record, or null if not applicable.
  */
 function parseRecordDeclaration(line) {
@@ -42,13 +42,14 @@ function parseRecordDeclaration(line) {
     let entityName = nameParts[0];
     /** @type {string|null} */
     let propertyName = null;
+
     /** @type {string|null} */
-    let verb = null;
+    let actionName = null;
 
     nameParts.shift();
 
     if (nameParts.length > 0) {
-        verb = nameParts[nameParts.length - 1];
+        actionName = nameParts[nameParts.length - 1];
         nameParts.pop();
     }
 
@@ -56,7 +57,7 @@ function parseRecordDeclaration(line) {
         propertyName = nameParts.join(".");
     }
 
-    return { entityName, propertyName, verb, description };
+    return { entityName, propertyName, actionName, description };
 }
 
 /**
@@ -183,12 +184,12 @@ function treeFromString(treeString) {
         if (line.trim() === "") continue;
 
         if (isRecordDeclaration(line)) {
-            let { entityName, propertyName, verb, description } =
+            let { entityName, propertyName, actionName, description } =
                 parseRecordDeclaration(line);
             currentRecord = tree.addRecord(
                 entityName,
                 propertyName,
-                verb,
+                actionName,
                 description
             );
 

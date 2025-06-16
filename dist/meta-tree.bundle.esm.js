@@ -185,6 +185,20 @@ ${fields}
   }
 };
 
+// src/tools/tools.js
+function getVerbFromActionName(actionName) {
+  if (actionName === null) return null;
+  if (!actionName) return null;
+  actionName = actionName.trim();
+  if (actionName.startsWith("get")) return "get";
+  else if (actionName.startsWith("set")) return "set";
+  else if (actionName.startsWith("add")) return "add";
+  else if (actionName.startsWith("delete")) return "delete";
+  else if (actionName.startsWith("list")) return "list";
+  else if (actionName.startsWith("check")) return "check";
+  else return "check";
+}
+
 // src/tree/record.js
 var Record = class {
   /** @type {string} */
@@ -192,6 +206,8 @@ var Record = class {
   /** @type {string|null} */
   propertyName;
   /** @type {string|null} */
+  actionName;
+  /** @type {"get"|"set"|"add"|"delete"|"list"|"check"|null} */
   verb;
   /** @type {Map<string, Section>} */
   sections;
@@ -203,13 +219,14 @@ var Record = class {
    * Creates a new Record.
    * @param {string} entityName
    * @param {string|null} propertyName
-   * @param {string|null} verb
+   * @param {string|null} actionName
    * @param {string|null} description
    */
-  constructor(entityName, propertyName, verb, description = null) {
+  constructor(entityName, propertyName, actionName = null, description = null) {
     this.entityName = entityName;
     this.propertyName = propertyName;
-    this.verb = verb;
+    this.actionName = actionName;
+    this.verb = getVerbFromActionName(actionName);
     if (/\s/.test(entityName))
       throw new Error(`Entity name cannot contain spaces: ${entityName}`);
     if (entityName.length === 0)
@@ -220,9 +237,6 @@ var Record = class {
       );
     if (propertyName && propertyName.length === 0)
       throw new Error("Property name cannot be empty");
-    if (verb && /\s/.test(verb))
-      throw new Error(`Verb cannot contain spaces: ${verb}`);
-    if (verb && verb.length === 0) throw new Error("Verb cannot be empty");
     this.sections = /* @__PURE__ */ new Map();
     this.mainSection = new Section("main");
     this.sections.set("main", this.mainSection);
@@ -236,7 +250,7 @@ var Record = class {
   getFullName() {
     let name = this.entityName;
     if (this.propertyName) name += "." + this.propertyName;
-    if (this.verb) name += "." + this.verb;
+    if (this.actionName) name += "." + this.actionName;
     return name;
   }
   /**
@@ -384,6 +398,7 @@ var Record = class {
       name: this.getFullName(),
       entityName: this.entityName,
       propertyName: this.propertyName,
+      actionName: this.actionName,
       verb: this.verb,
       description: this.description,
       sections: Array.from(this.sections.values()).map(
@@ -403,12 +418,17 @@ var Tree = class {
    * Adds a new record to the tree.
    * @param {string} entityName - The name of the entity for the record.
    * @param {string|null} propertyName - The name of the property for the record, or null if not applicable.
-   * @param {string|null} verb - The verb associated with the record, or null if not applicable.
+   * @param {string|null} actionName - The actionName associated with the record, or null if not applicable.
    * @param {string|null} description - The description of the record, or null if not applicable.
    * @returns {Record} The newly created record.
    */
-  addRecord(entityName, propertyName = null, verb = null, description = null) {
-    let record = new Record(entityName, propertyName, verb, description);
+  addRecord(entityName, propertyName = null, actionName = null, description = null) {
+    let record = new Record(
+      entityName,
+      propertyName,
+      actionName,
+      description
+    );
     let fullName = record.getFullName();
     if (this.records.has(fullName))
       throw new Error(`Record already exists: ${fullName}`);
@@ -494,16 +514,16 @@ function parseRecordDeclaration(line) {
   let nameParts = fullName.split(".");
   let entityName = nameParts[0];
   let propertyName = null;
-  let verb = null;
+  let actionName = null;
   nameParts.shift();
   if (nameParts.length > 0) {
-    verb = nameParts[nameParts.length - 1];
+    actionName = nameParts[nameParts.length - 1];
     nameParts.pop();
   }
   if (nameParts.length > 0) {
     propertyName = nameParts.join(".");
   }
-  return { entityName, propertyName, verb, description };
+  return { entityName, propertyName, actionName, description };
 }
 function parseSectionDeclaration(line) {
   let m = line.match(/^@([\w_\.]+)/);
@@ -573,11 +593,11 @@ function treeFromString(treeString) {
   for (let line of lines) {
     if (line.trim() === "") continue;
     if (isRecordDeclaration(line)) {
-      let { entityName, propertyName, verb, description } = parseRecordDeclaration(line);
+      let { entityName, propertyName, actionName, description } = parseRecordDeclaration(line);
       currentRecord = tree.addRecord(
         entityName,
         propertyName,
-        verb,
+        actionName,
         description
       );
       currentSectionName = "main";

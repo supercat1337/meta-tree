@@ -45,9 +45,12 @@ var Field = class {
   }
   /**
    * @param {string} name
-   * @param {string|null} value
+   * @param {number|string|null} value
    */
   setAttribute(name, value) {
+    if (typeof value === "number") {
+      value = value.toString();
+    }
     this.attributes.set(name, value);
   }
   #attrsToString() {

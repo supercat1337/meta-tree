@@ -33,9 +33,9 @@ export class Field {
     deleteAttribute(name: string): void;
     /**
      * @param {string} name
-     * @param {string|null} value
+     * @param {number|string|null} value
      */
-    setAttribute(name: string, value: string | null): void;
+    setAttribute(name: string, value: number | string | null): void;
     stringify(): string;
     /**
      * Converts the field to a JSON-compatible object.

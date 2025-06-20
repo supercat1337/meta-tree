@@ -32,10 +32,11 @@ export class Field {
      */
     deleteAttribute(name: string): void;
     /**
+     * Sets an attribute for the field.
      * @param {string} name
-     * @param {number|string|null} value
+     * @param {number|string|null} [value=null]
      */
-    setAttribute(name: string, value: number | string | null): void;
+    setAttribute(name: string, value?: number | string | null): void;
     stringify(): string;
     /**
      * Converts the field to a JSON-compatible object.

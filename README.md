@@ -111,7 +111,7 @@ const parsedTree = treeFromString(treeString);
     -   `hasAttribute(name: string): boolean`
     -   `getAttribute(name: string): string|null`
     -   `deleteAttribute(name: string): void`
-    -   `setAttribute(name: string, value: string|null): void`
+    -   `setAttribute(name: string, value?: string|null): void`
     -   `stringify(): string`
     -   `toJSON(): object`
 

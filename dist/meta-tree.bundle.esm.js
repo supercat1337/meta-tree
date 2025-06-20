@@ -44,10 +44,11 @@ var Field = class {
     this.attributes.delete(name);
   }
   /**
+   * Sets an attribute for the field.
    * @param {string} name
-   * @param {number|string|null} value
+   * @param {number|string|null} [value=null]
    */
-  setAttribute(name, value) {
+  setAttribute(name, value = null) {
     if (typeof value === "number") {
       value = value.toString();
     }

@@ -1,6 +1,6 @@
 {
   "name": "@supercat1337/meta-tree",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A JavaScript library for creating, managing, and serializing hierarchical data structures with fields, sections, and records.",
   "license": "MIT",
   "author": "Supercat1337",

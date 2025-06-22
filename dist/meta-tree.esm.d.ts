@@ -8,8 +8,8 @@ export class Field {
     constructor(name: string, isOptional?: boolean, defaultValue?: string | null, description?: string | null);
     /** @type {string} */
     name: string;
-    /** @type {Map<string, string|null>} */
-    attributes: Map<string, string | null>;
+    /** @type {Map<string, string>} */
+    attributes: Map<string, string>;
     /** @type {boolean} */
     isOptional: boolean;
     /** @type {string|null} */
@@ -34,9 +34,9 @@ export class Field {
     /**
      * Sets an attribute for the field.
      * @param {string} name
-     * @param {number|string|null} [value=null]
+     * @param {number|string} [value=null]
      */
-    setAttribute(name: string, value?: number | string | null): void;
+    setAttribute(name: string, value?: number | string): void;
     stringify(): string;
     /**
      * Converts the field to a JSON-compatible object.

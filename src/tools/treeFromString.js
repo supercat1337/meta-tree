@@ -112,7 +112,7 @@ function parseHtmlAttributes(inputString) {
             }
         }
 
-        attributes[name] = value;
+        attributes[name] = value === null ? "" : value;
     }
 
     return { attributes, comment };

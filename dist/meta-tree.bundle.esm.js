@@ -2,7 +2,7 @@
 var Field = class {
   /** @type {string} */
   name;
-  /** @type {Map<string, string|null>} */
+  /** @type {Map<string, string>} */
   attributes = /* @__PURE__ */ new Map();
   /** @type {boolean} */
   isOptional = false;
@@ -46,11 +46,11 @@ var Field = class {
   /**
    * Sets an attribute for the field.
    * @param {string} name
-   * @param {number|string|null} [value=null]
+   * @param {number|string} [value=null]
    */
-  setAttribute(name, value = null) {
-    if (typeof value === "number") {
-      value = value.toString();
+  setAttribute(name, value = "") {
+    if (typeof value !== "string") {
+      value = String(value);
     }
     this.attributes.set(name, value);
   }
@@ -554,7 +554,7 @@ function parseHtmlAttributes(inputString) {
         value = rawValue;
       }
     }
-    attributes[name] = value;
+    attributes[name] = value === null ? "" : value;
   }
   return { attributes, comment };
 }

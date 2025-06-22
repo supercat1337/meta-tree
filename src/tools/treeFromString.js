@@ -74,10 +74,10 @@ function parseSectionDeclaration(line) {
 /**
  * Parses a string of HTML attributes into an object.
  * @param {string} inputString The string of HTML attributes to parse.
- * @returns {{attributes: Object.<string, string|null>, comment: string|null}} An object where each key is an attribute name and each value is the corresponding attribute value.
+ * @returns {{attributes: Object.<string, string>, comment: string|null}} An object where each key is an attribute name and each value is the corresponding attribute value.
  */
 function parseHtmlAttributes(inputString) {
-    /** @type {Object.<string, string|null>} */
+    /** @type {Object.<string, string>} */
     const attributes = {};
     /** @type {string|null} */
     let comment = null;

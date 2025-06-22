@@ -34,7 +34,10 @@ var Field = class {
    * @return {string|null}
    */
   getAttribute(name) {
-    return this.attributes.get(name) || null;
+    if (!this.attributes.has(name)) {
+      return null;
+    }
+    return this.attributes.get(name) || "";
   }
   /**
    * Deletes an attribute from the field.

@@ -2,7 +2,7 @@
 
 /**
  * Attempts to determine the verb of an action from its name.
- * @param {string} actionName - The name of the action.
+ * @param {string|null} actionName - The name of the action.
  * @returns {"get"|"set"|"add"|"delete"|"list"|"check"|null} The verb of the action, or null if it could not be determined.
  */
 export function getVerbFromActionName(actionName) {

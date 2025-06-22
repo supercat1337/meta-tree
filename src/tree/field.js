@@ -47,7 +47,10 @@ class Field {
      * @return {string|null}
      */
     getAttribute(name) {
-        return this.attributes.get(name) || null;
+        if (!this.attributes.has(name)) {
+            return null;
+        }
+        return this.attributes.get(name) || "";
     }
 
     /**

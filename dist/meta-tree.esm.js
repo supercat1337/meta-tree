@@ -47,7 +47,10 @@ class Field {
      * @return {string|null}
      */
     getAttribute(name) {
-        return this.attributes.get(name) || null;
+        if (!this.attributes.has(name)) {
+            return null;
+        }
+        return this.attributes.get(name) || "";
     }
 
     /**
@@ -238,7 +241,7 @@ class Section {
 
 /**
  * Attempts to determine the verb of an action from its name.
- * @param {string} actionName - The name of the action.
+ * @param {string|null} actionName - The name of the action.
  * @returns {"get"|"set"|"add"|"delete"|"list"|"check"|null} The verb of the action, or null if it could not be determined.
  */
 function getVerbFromActionName(actionName) {
@@ -698,10 +701,10 @@ function parseSectionDeclaration(line) {
 /**
  * Parses a string of HTML attributes into an object.
  * @param {string} inputString The string of HTML attributes to parse.
- * @returns {{attributes: Object.<string, string|null>, comment: string|null}} An object where each key is an attribute name and each value is the corresponding attribute value.
+ * @returns {{attributes: Object.<string, string>, comment: string|null}} An object where each key is an attribute name and each value is the corresponding attribute value.
  */
 function parseHtmlAttributes(inputString) {
-    /** @type {Object.<string, string|null>} */
+    /** @type {Object.<string, string>} */
     const attributes = {};
     /** @type {string|null} */
     let comment = null;

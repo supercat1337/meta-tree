@@ -201,7 +201,7 @@ function getVerbFromActionName(actionName) {
   else if (actionName.startsWith("set")) return "set";
   else if (actionName.startsWith("add")) return "add";
   else if (actionName.startsWith("delete")) return "delete";
-  else if (actionName.startsWith("list")) return "list";
+  else if (/list/i.test(actionName)) return "list";
   else if (actionName.startsWith("check")) return "check";
   else return "check";
 }

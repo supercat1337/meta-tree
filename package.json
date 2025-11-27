@@ -1,6 +1,6 @@
 {
   "name": "@supercat1337/meta-tree",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "A JavaScript library for creating, managing, and serializing hierarchical data structures with fields, sections, and records.",
   "license": "MIT",
   "author": "Supercat1337",
@@ -11,7 +11,6 @@
     "url": "https://github.com/supercat1337/meta-tree"
   },
   "scripts": {
-    "preinstall": "npm i -g esbuild && npm i -g rollup",
     "build": "npm run remove_type_files && npm run build_esm && npm run build_bundle_esm && npm run build_bundle_esm_min && npm run create_types",
     "build_bundle_esm_min": "esbuild --minify --bundle --platform=neutral --legal-comments=none ./src/index.js --outfile=./dist/meta-tree.bundle.esm.min.js",
     "build_bundle_esm": "esbuild --bundle --platform=neutral --legal-comments=none ./src/index.js --outfile=./dist/meta-tree.bundle.esm.js",

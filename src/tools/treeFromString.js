@@ -1,7 +1,8 @@
 // @ts-check
 
-import { Field, Record, Section, Tree } from '../index.js';
+import { Field, Tree } from '../index.js';
 import { parseHead, parseAttributesAndComment } from './head-parser.js';
+import { preprocessMacros } from './macro-preprocessor.js';
 
 /**
  * Checks if a line is a record declaration (no leading whitespace and not a section).
@@ -169,4 +170,14 @@ export function treeFromString(treeString) {
     }
 
     return tree;
+}
+
+/**
+ * Parses a tree string with macro preprocessing.
+ * @param {string} treeString
+ * @returns {Tree}
+ */
+export function treeFromStringWithMacros(treeString) {
+    const expanded = preprocessMacros(treeString);
+    return treeFromString(expanded);
 }

@@ -12,6 +12,23 @@ export type ParsedHead = {
      */
     description: string | null;
 };
+export type MacroAttr = {
+    /**
+     * - 'attr'
+     */
+    type: string;
+    params: string[];
+    body: string;
+};
+export type MacroBlock = {
+    /**
+     * - 'block'
+     */
+    type: string;
+    params: string[];
+    body: string;
+};
+export type Macro = MacroAttr | MacroBlock;
 export class Field {
     /**
      * Creates a new Field.
@@ -444,9 +461,16 @@ export class Tree {
         records: Array<ReturnType<Record["toJSON"]>>;
     };
 }
+export function preprocessMacros(dslString: any): string;
 /**
  * Parses a tree string into a Tree object.
  * @param {string} treeString - The DSL string.
  * @returns {Tree}
  */
 export function treeFromString(treeString: string): Tree;
+/**
+ * Parses a tree string with macro preprocessing.
+ * @param {string} treeString
+ * @returns {Tree}
+ */
+export function treeFromStringWithMacros(treeString: string): Tree;

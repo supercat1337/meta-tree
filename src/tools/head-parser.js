@@ -60,7 +60,7 @@ function parseAttributes(str) {
         // Читаем имя атрибута
         let nameStart = i;
         while (i < n && /[\w$-]/.test(trimmed[i])) i++;
-        if (nameStart === i) break; // не найден атрибут
+        if (nameStart === i) break; 
         const name = trimmed.slice(nameStart, i);
 
         while (i < n && /\s/.test(trimmed[i])) i++;

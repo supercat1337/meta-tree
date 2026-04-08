@@ -13,22 +13,15 @@ export type ParsedHead = {
     description: string | null;
 };
 export type MacroAttr = {
-    /**
-     * - 'attr'
-     */
-    type: string;
+    type: "attr";
     params: string[];
     body: string;
 };
 export type MacroBlock = {
-    /**
-     * - 'block'
-     */
-    type: string;
+    type: "block";
     params: string[];
     body: string;
 };
-export type Macro = MacroAttr | MacroBlock;
 export class Field {
     /**
      * Creates a new Field.
@@ -461,7 +454,12 @@ export class Tree {
         records: Array<ReturnType<Record["toJSON"]>>;
     };
 }
-export function preprocessMacros(dslString: any): string;
+/**
+ * Compatibility wrapper to match the existing API.
+ * @param {string} dslString
+ * @returns {string}
+ */
+export function preprocessMacros(dslString: string): string;
 /**
  * Parses a tree string into a Tree object.
  * @param {string} treeString - The DSL string.

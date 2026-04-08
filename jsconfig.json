@@ -6,6 +6,6 @@
         "lib": ["DOM", "ES2020"],
         "moduleResolution": "NodeNext"
     },
-    "exclude": ["dist/*"],
-    "include": ["src/index.js", "node_modules/*", "src/**/*.d.ts"]
+    "exclude": ["dist/*", "node_modules/*"],
+    "include": ["src/index.js", "src/**/*.d.ts"]
 }

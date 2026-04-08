@@ -2,13 +2,29 @@
 
 A JavaScript library for creating, managing, and serializing hierarchical data structures with fields, sections, and records.
 
-**Version 2.0.0** introduces a powerful macro system (preprocessor) to eliminate duplication and enable reuse of attribute sets and DSL blocks.
-
 ## Installation
 
 ```bash
 npm install @supercat1337/meta-tree
 ```
+
+## 🤖 AI-Ready DSL
+
+Meta-Tree DSL is specifically designed to be easily "understood" by Large Language Models (LLMs) like Claude, GPT, or Gemini. This makes it an ideal choice for automated code generation workflows.
+
+### AI Documentation
+
+We provide a specialized guide: [**AI-DOCS.md**](./ai-docs.md).
+You can feed this file directly into an AI's context window. It contains:
+
+- Strict hierarchical rules and naming conventions.
+- Explicit lexical guidelines for indentation and symbols.
+- A "Complete Example" that acts as a reference for the AI to generate consistent DSL code.
+
+**Benefits:**
+
+- **Zero Hallucinations:** Strict syntax reduces AI errors.
+- **Contract-First Development:** Describe your API once, then ask AI to generate SDKs for any language using the DSL as a source of truth.
 
 ## Usage
 
@@ -21,8 +37,9 @@ import {
     Section,
     Tree,
     treeFromString,
-    treeFromStringWithMacros, // new in 2.0.0
+    treeFromStringWithMacros, // new in 2.0
     preprocessMacros, // standalone preprocessor
+    MacroPreprocessor, // class for advanced usage
 } from '@supercat1337/meta-tree';
 ```
 
@@ -52,6 +69,9 @@ console.log(section.stringify());
 const record = new Record('User', 'Profile', 'Update', 'Updates profile', { version: '2.0' });
 record.addField(new Field('username'));
 console.log(record.stringify());
+// Output:
+// User.Profile.Update version="2.0" // Updates profile
+//     username
 ```
 
 #### Tree
@@ -63,13 +83,13 @@ const serialized = tree.stringify();
 const parsed = treeFromString(serialized);
 ```
 
-## DSL Format (Version 2.1)
+## DSL Format (Version 2.0)
 
 The DSL supports records, sections, fields, attributes, comments, and now **macros**.
 
 ### Macros
 
-Macros are expanded in a **preprocessing step** before the main parser. Two types are available:
+Macros are expanded in a **preprocessing step** before the main parser. The preprocessor detects circular dependencies and provides clear error messages.
 
 #### Attribute Macros
 
@@ -101,34 +121,30 @@ links.add
 Define reusable blocks of DSL (fields, sections, even whole records). Can also have parameters.
 
 ```
-#define-block LinkFields
-    link_id    type="integer" is_primary
-    user_id    type="integer"
+#define-block Pagination
+    [page="1"]    type="int" // Page number
+    [limit="20"]  type="int" // Items per page
 #end
 
-#define-block LinkFieldsWithPrefix(prefix)
-    {{prefix}}_id    type="integer" is_primary
-    {{prefix}}_name  type="string"
+#define-block BaseMeta
+    request_id    type="uuid"
+    timestamp     type="datetime"
 #end
 ```
 
-Invoke them on a separate line (with proper indentation):
+Invoke them on a separate line (with proper indentation). Parentheses are optional for macros without parameters.
 
 ```
-links.add
-    #LinkFields
-    #LinkFieldsWithPrefix(link)
+ListOrders method="GET" // Method to list orders
+    #BaseMeta
+    #Pagination()       // parentheses allowed
+    filter        type="string"
+
+    @returns
+        items     array="true" ref="Order"
 ```
 
-After preprocessing:
-
-```
-links.add
-    link_id    type="integer" is_primary
-    user_id    type="integer"
-    link_id    type="integer" is_primary
-    link_name  type="string"
-```
+After preprocessing, the block macros are expanded in place, and any nested attribute macros are expanded recursively.
 
 #### Important Notes
 
@@ -136,14 +152,13 @@ links.add
 - Definitions (`#define-attr`, `#define-block`) must appear **before** any usage.
 - A macro cannot be redefined (duplicate names cause an error).
 - Block macros are terminated by `#end` on its own line.
-- Placeholders in attribute macros use `{{param}}` syntax.
-- Placeholders in block macros also use `{{param}}`.
-- Macros can be nested (attribute macros inside block macros, or block macros calling other block macros – but be careful with recursion).
+- Placeholders in macros use `{{param}}` syntax.
+- Macros can be nested (attribute macros inside block macros, or block macros calling other block macros – with cycle detection).
 - Invocations use `#` (not `@`) to avoid confusion with sections.
 
 ### Complete Example
 
-```
+```c
 #define-attr UInt32 type="integer" min="0" max="4294967295"
 #define-attr String(min,max) type="string" length_min="{{min}}" length_max="{{max}}"
 
@@ -153,21 +168,12 @@ links.add
     link_name  #String(1,64)
 #end
 
-#define-block LinkFieldsWithPrefix(prefix)
-    {{prefix}}_id    #UInt32 is_primary
-    {{prefix}}_name  #String(1,64)
-#end
-
-links.add
+links.add version="1.0" // Create a new link
     #LinkFields
     active_mode_require_auth    #UInt32 min="0" max="255"
 
     @returns
         link_id    #UInt32
-
-links.get
-    #LinkFieldsWithPrefix(link)
-    extra_field    type="string"
 ```
 
 ### Serialization and Parsing
@@ -175,7 +181,8 @@ links.get
 - `tree.stringify()` – produces DSL without macro definitions (expanded form).
 - `treeFromString(dsl)` – parses DSL without macro preprocessing.
 - `treeFromStringWithMacros(dsl)` – preprocesses macros, then parses.
-- `preprocessMacros(dsl)` – standalone macro expansion.
+- `preprocessMacros(dsl)` – standalone macro expansion (returns expanded DSL string).
+- `MacroPreprocessor` – class for advanced usage (custom depth limits, etc.).
 
 ## API Reference
 
@@ -259,11 +266,12 @@ links.get
 
 ### Utility Functions
 
-| Function                   | Parameters           | Return Type | Description                       |
-| -------------------------- | -------------------- | ----------- | --------------------------------- |
-| `treeFromString`           | `treeString: string` | `Tree`      | Parses DSL without macros.        |
-| `treeFromStringWithMacros` | `treeString: string` | `Tree`      | Preprocesses macros and parses.   |
-| `preprocessMacros`         | `dslString: string`  | `string`    | Expands macros only, returns DSL. |
+| Function                   | Parameters              | Return Type         | Description                                                   |
+| -------------------------- | ----------------------- | ------------------- | ------------------------------------------------------------- |
+| `treeFromString`           | `treeString: string`    | `Tree`              | Parses DSL without macros.                                    |
+| `treeFromStringWithMacros` | `treeString: string`    | `Tree`              | Preprocesses macros and parses.                               |
+| `preprocessMacros`         | `dslString: string`     | `string`            | Expands macros only, returns DSL.                             |
+| `MacroPreprocessor`        | `maxAttrDepth?: number` | `MacroPreprocessor` | Class for advanced macro preprocessing (allows custom depth). |
 
 ## License
 

@@ -50,28 +50,53 @@ function parseAttributes(str) {
     const trimmed = str.trim();
     if (!trimmed) return attrs;
 
-    const regex = /([\w$-]+)(?:=("(?:\\"|[^"])*"|'(?:\\'|[^'])*'|([^\s]+)))?/g;
-    let match;
-    while ((match = regex.exec(trimmed)) !== null) {
-        const key = match[1];
-        let value = '';
-        if (match[2]) {
-            // Quoted value (double or single quotes)
-            let inner = match[2].slice(1, -1);
-            try {
-                value = JSON.parse('"' + inner + '"');
-            } catch (e) {
-                // Fallback: replace escaped quotes
-                value = inner.replace(/\\(["'])/g, '$1');
-            }
-        } else if (match[3]) {
-            // Unquoted value
-            value = match[3];
-        } else {
-            // No value, e.g. `disabled`
-            value = '';
+    let i = 0;
+    const n = trimmed.length;
+
+    while (i < n) {
+        while (i < n && /\s/.test(trimmed[i])) i++;
+        if (i >= n) break;
+
+        // Читаем имя атрибута
+        let nameStart = i;
+        while (i < n && /[\w$-]/.test(trimmed[i])) i++;
+        if (nameStart === i) break; // не найден атрибут
+        const name = trimmed.slice(nameStart, i);
+
+        while (i < n && /\s/.test(trimmed[i])) i++;
+        if (i >= n || trimmed[i] !== '=') {
+            attrs.set(name, '');
+            continue;
         }
-        attrs.set(key, value);
+        i++;
+
+        while (i < n && /\s/.test(trimmed[i])) i++;
+        if (i >= n) {
+            attrs.set(name, '');
+            break;
+        }
+
+        let value = '';
+        const ch = trimmed[i];
+        if (ch === '"' || ch === "'") {
+            const quote = ch;
+            i++;
+            let valueStart = i;
+            while (i < n && trimmed[i] !== quote) {
+                if (trimmed[i] === '\\' && i + 1 < n) {
+                    i++;
+                }
+                i++;
+            }
+            value = trimmed.slice(valueStart, i);
+            value = value.replace(/\\(["'])/g, '$1');
+            i++;
+        } else {
+            let valueStart = i;
+            while (i < n && !/\s/.test(trimmed[i])) i++;
+            value = trimmed.slice(valueStart, i);
+        }
+        attrs.set(name, value);
     }
     return attrs;
 }

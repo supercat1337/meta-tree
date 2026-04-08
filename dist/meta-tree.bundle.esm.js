@@ -22,24 +22,47 @@ function parseAttributes(str) {
   const attrs = /* @__PURE__ */ new Map();
   const trimmed = str.trim();
   if (!trimmed) return attrs;
-  const regex = /([\w$-]+)(?:=("(?:\\"|[^"])*"|'(?:\\'|[^'])*'|([^\s]+)))?/g;
-  let match;
-  while ((match = regex.exec(trimmed)) !== null) {
-    const key = match[1];
-    let value = "";
-    if (match[2]) {
-      let inner = match[2].slice(1, -1);
-      try {
-        value = JSON.parse('"' + inner + '"');
-      } catch (e) {
-        value = inner.replace(/\\(["'])/g, "$1");
-      }
-    } else if (match[3]) {
-      value = match[3];
-    } else {
-      value = "";
+  let i = 0;
+  const n = trimmed.length;
+  while (i < n) {
+    while (i < n && /\s/.test(trimmed[i])) i++;
+    if (i >= n) break;
+    let nameStart = i;
+    while (i < n && /[\w$-]/.test(trimmed[i])) i++;
+    if (nameStart === i) break;
+    const name = trimmed.slice(nameStart, i);
+    while (i < n && /\s/.test(trimmed[i])) i++;
+    if (i >= n || trimmed[i] !== "=") {
+      attrs.set(name, "");
+      continue;
     }
-    attrs.set(key, value);
+    i++;
+    while (i < n && /\s/.test(trimmed[i])) i++;
+    if (i >= n) {
+      attrs.set(name, "");
+      break;
+    }
+    let value = "";
+    const ch = trimmed[i];
+    if (ch === '"' || ch === "'") {
+      const quote = ch;
+      i++;
+      let valueStart = i;
+      while (i < n && trimmed[i] !== quote) {
+        if (trimmed[i] === "\\" && i + 1 < n) {
+          i++;
+        }
+        i++;
+      }
+      value = trimmed.slice(valueStart, i);
+      value = value.replace(/\\(["'])/g, "$1");
+      i++;
+    } else {
+      let valueStart = i;
+      while (i < n && !/\s/.test(trimmed[i])) i++;
+      value = trimmed.slice(valueStart, i);
+    }
+    attrs.set(name, value);
   }
   return attrs;
 }

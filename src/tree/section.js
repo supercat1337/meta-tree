@@ -1,111 +1,196 @@
 // @ts-check
 
-import { Field } from "./field.js";
+import { Field } from './field.js';
+import { stringifyHead, parseHead } from '../tools/head-parser.js';
 
 export class Section {
     /** @type {string} */
     name;
     /** @type {Map<string, Field>} */
     fields = new Map();
+    /** @type {Map<string, string>} */
+    attributes = new Map();
+    /** @type {string|null} */
+    description = null;
 
     /**
-     * @param {string} name
+     * Creates a new Section.
+     * @param {string} name - Section name (no spaces, allowed: letters, digits, underscore, dot, hyphen).
+     * @param {Object<string, string>} [attributes] - Section attributes.
+     * @param {string|null} [description] - Section description.
+     * @throws {Error} When name is invalid.
      */
-    constructor(name) {
-        if (/\s/.test(name))
-            throw new Error(`Section name cannot contain spaces: ${name}`);
-
-        if (name.length === 0) throw new Error("Section name cannot be empty");
-
+    constructor(name, attributes = {}, description = null) {
+        if (name.length === 0) throw new Error('Section name cannot be empty');
+        if (/\s/.test(name)) throw new Error(`Section name cannot contain spaces: ${name}`);
+        if (!/^[a-zA-Z0-9_.-]+$/.test(name)) throw new Error(`Invalid section name: ${name}`);
         this.name = name;
+        this.description = description;
+        for (const [k, v] of Object.entries(attributes)) this.setAttribute(k, v);
     }
 
     /**
-     * Adds a field to the section.
-     * @param {Field} field The field to add.
+     * Adds a field. Throws if a field with the same name already exists.
+     * @param {Field} field
+     * @throws {Error} When field name already exists.
      */
     addField(field) {
-        if (this.hasField(field.name))
-            throw new Error(`Field already exists: ${field.name}`);
-
-        this.fields.set(field.name, field);
+        if (this.hasField(field.name)) throw new Error(`Field already exists: ${field.name}`);
+        this.setField(field);
     }
 
     /**
-     * Checks if a field exists in the section.
-     * @param {string} name The name of the field to check.
-     * @return {boolean} True if the field exists, false if not.
+     * Checks if a field exists.
+     * @param {string} name
+     * @returns {boolean}
      */
     hasField(name) {
         return this.fields.has(name);
     }
 
     /**
-     * Retrieves a field from the section by its name.
-     * @param {string} name The name of the field to retrieve.
-     * @return {Field|null} The field if found, otherwise null.
+     * Retrieves a field by name.
+     * @param {string} name
+     * @returns {Field|null}
      */
     getField(name) {
-        let field = this.fields.get(name);
-        if (!field) return null;
-
-        return field;
+        return this.fields.get(name) || null;
     }
 
     /**
-     * Sets a field in the section by its name.
-     * @param {Field} field The field to set.
-     * @throws Will throw an error if the field already exists.
+     * Sets a field (overwrites if exists).
+     * @param {Field} field
      */
     setField(field) {
         this.fields.set(field.name, field);
     }
 
     /**
-     * Deletes a field from the section by its name.
-     * @param {string} name The name of the field to delete.
+     * Deletes a field.
+     * @param {string} name
      */
     deleteField(name) {
         this.fields.delete(name);
     }
 
     /**
-     * Retrieves all fields in the section.
-     * @return {Field[]} An array of all fields in the section.
+     * Returns all fields in the section.
+     * @returns {Field[]}
      */
     getFields() {
         return Array.from(this.fields.values());
     }
 
     /**
-     * @return {string} The string representation of the section.
+     * Returns all field names.
+     * @returns {string[]}
      */
-    stringify(padding = "    ") {
-        let fieldsArray = [];
-        this.fields.forEach((field) => {
-            fieldsArray.push(field.stringify());
-        });
-
-        let fields = fieldsArray.map((field) => padding + field).join("\n");
-
-        if (this.name == "main") {
-            return `${fields}\n`;
-        } else {
-            return `${padding + "@" + this.name}\n${fields}\n`;
-        }
+    getFieldNames() {
+        return Array.from(this.fields.keys());
     }
 
     /**
-     * Converts the section to a JSON-compatible object.
-     * @returns {object} A JSON-compatible object with "name" and "fields" properties.
-     *                   The "fields" property is an array of JSON-compatible fields.
+     * Checks if an attribute exists.
+     * @param {string} name
+     * @returns {boolean}
+     */
+    hasAttribute(name) {
+        return this.attributes.has(name);
+    }
+
+    /**
+     * Gets an attribute value.
+     * @param {string} name
+     * @returns {string|null}
+     */
+    getAttribute(name) {
+        return this.attributes.get(name) ?? null;
+    }
+
+    /**
+     * Deletes an attribute.
+     * @param {string} name
+     */
+    deleteAttribute(name) {
+        this.attributes.delete(name);
+    }
+
+    /**
+     * Sets an attribute.
+     * @param {string} name
+     * @param {string} value
+     */
+    setAttribute(name, value) {
+        this.attributes.set(name, value);
+    }
+
+    /**
+     * Returns the DSL string representation of the section.
+     * @param {string} [padding='    '] - Indentation string.
+     * @returns {string}
+     */
+    stringify(padding = '    ') {
+        const fieldsArray = this.getFields().map(f => f.stringify());
+        if (fieldsArray.length === 0 && this.name === 'main') return '';
+        const fieldsStr = fieldsArray.map(f => padding + f).join('\n');
+        if (this.name === 'main') return fieldsStr;
+
+        // For named sections, add padding before the header
+        const header = stringifyHead(`@${this.name}`, this.attributes, this.description);
+        const indentedHeader = padding + header;
+        if (fieldsStr) return `${indentedHeader}\n${fieldsStr}`;
+        return indentedHeader;
+    }
+
+    /**
+     * Returns a JSON-compatible object.
+     * @returns {{
+     *   name: string,
+     *   description: string|null,
+     *   attributes: Array<[string, string]>,
+     *   fields: Array<ReturnType<Field['toJSON']>>
+     * }}
      */
     toJSON() {
         return {
             name: this.name,
-            fields: Array.from(this.fields.values()).map((field) =>
-                field.toJSON()
-            ),
+            description: this.description,
+            attributes: Array.from(this.attributes.entries()),
+            fields: this.getFields().map(f => f.toJSON()),
         };
+    }
+
+    /**
+     * Creates a deep copy of the section.
+     * @returns {Section}
+     */
+    clone() {
+        const section = new Section(
+            this.name,
+            Object.fromEntries(this.attributes),
+            this.description
+        );
+        for (const f of this.getFields()) section.addField(f.clone());
+        return section;
+    }
+
+    /**
+     * Renames the section.
+     * @param {string} newName
+     * @throws {Error} When name is invalid.
+     */
+    setName(newName) {
+        if (newName.length === 0) throw new Error('Section name cannot be empty');
+        if (/\s/.test(newName)) throw new Error(`Section name cannot contain spaces: ${newName}`);
+        if (!/^[a-zA-Z0-9_.-]+$/.test(newName)) throw new Error(`Invalid section name: ${newName}`);
+        this.name = newName;
+    }
+
+    /**
+     * Returns the section name.
+     * @returns {string}
+     */
+    getName() {
+        return this.name;
     }
 }

@@ -1,8 +1,9 @@
 // @ts-check
 
-import { Field } from "./field.js";
-import { Section } from "./section.js";
-import { getVerbFromActionName } from "../tools/tools.js";
+import { Field } from './field.js';
+import { Section } from './section.js';
+import { getVerbFromActionName } from '../tools/tools.js';
+import { stringifyHead } from '../tools/head-parser.js';
 
 export class Record {
     /** @type {string} */
@@ -13,233 +14,255 @@ export class Record {
     actionName;
     /** @type {"get"|"set"|"add"|"delete"|"list"|"check"|null} */
     verb;
-
     /** @type {Map<string, Section>} */
     sections;
     /** @type {Section} */
     mainSection;
-
     /** @type {string|null} */
     description;
+    /** @type {Map<string, string>} */
+    attributes = new Map();
 
     /**
      * Creates a new Record.
-     * @param {string} entityName
-     * @param {string|null} propertyName
-     * @param {string|null} actionName
-     * @param {string|null} description
+     * @param {string} entityName - Entity name (letters, digits, underscore, hyphen).
+     * @param {string|null} propertyName - Property name (optional, may contain dots).
+     * @param {string|null} actionName - Action name (optional).
+     * @param {string|null} [description] - Record description.
+     * @param {Object<string, string>} [attributes] - Record attributes.
+     * @throws {Error} When any name is invalid.
      */
-    constructor(
-        entityName,
-        propertyName,
-        actionName = null,
-        description = null
-    ) {
+    constructor(entityName, propertyName, actionName = null, description = null, attributes = {}) {
+        if (!/^[a-zA-Z0-9_-]+$/.test(entityName))
+            throw new Error(`Invalid entity name: ${entityName}`);
+        if (propertyName !== null && !/^[a-zA-Z0-9_.-]+$/.test(propertyName))
+            throw new Error(`Invalid property name: ${propertyName}`);
+        if (actionName !== null && !/^[a-zA-Z0-9_-]+$/.test(actionName))
+            throw new Error(`Invalid action name: ${actionName}`);
+
         this.entityName = entityName;
         this.propertyName = propertyName;
         this.actionName = actionName;
-
         this.verb = getVerbFromActionName(actionName);
-
-        if (/\s/.test(entityName))
-            throw new Error(`Entity name cannot contain spaces: ${entityName}`);
-
-        if (entityName.length === 0)
-            throw new Error("Entity name cannot be empty");
-
-        if (propertyName && /\s/.test(propertyName))
-            throw new Error(
-                `Property name cannot contain spaces: ${propertyName}`
-            );
-
-        if (propertyName && propertyName.length === 0)
-            throw new Error("Property name cannot be empty");
+        this.description = description;
 
         this.sections = new Map();
+        this.mainSection = new Section('main');
+        this.sections.set('main', this.mainSection);
 
-        this.mainSection = new Section("main");
-        this.sections.set("main", this.mainSection);
-
-        this.description = description;
+        for (const [k, v] of Object.entries(attributes)) this.setAttribute(k, v);
     }
 
     /**
-     * Constructs the full name of the record by concatenating the entity name,
-     * property name, and verb, if they exist.
-     * @return {string} The full name of the record.
+     * Constructs full record name: entity.property.action.
+     * @returns {string}
      */
     getFullName() {
         let name = this.entityName;
-        if (this.propertyName) name += "." + this.propertyName;
-        if (this.actionName) name += "." + this.actionName;
+        if (this.propertyName) name += '.' + this.propertyName;
+        if (this.actionName) name += '.' + this.actionName;
         return name;
     }
 
     /**
-     * Adds a new section to the record.
-     * @param {string} name The name of the section to add. Must be unique and cannot contain spaces.
-     * @throws Will throw an error if the section already exists.
-     * @return {Section} The newly created section.
+     * Adds a new section.
+     * @param {string} name - Section name (unique).
+     * @param {Object<string, string>} [attributes] - Section attributes.
+     * @param {string|null} [description] - Section description.
+     * @returns {Section} The newly created section.
+     * @throws {Error} When section already exists.
      */
-    addSection(name) {
-        if (this.sections.has(name))
-            throw new Error(`Section already exists: ${name}`);
-
-        let section = new Section(name);
+    addSection(name, attributes = {}, description = null) {
+        if (this.sections.has(name)) throw new Error(`Section already exists: ${name}`);
+        const section = new Section(name, attributes, description);
         this.sections.set(name, section);
+        if (name === 'main') this.mainSection = section;
         return section;
     }
 
     /**
-     * Retrieves a section from the record by its name.
-     * @param {string} name The name of the section to retrieve.
-     * @return {Section|null} The section if found, otherwise null.
+     * Retrieves a section by name.
+     * @param {string} name
+     * @returns {Section|null}
      */
     getSection(name) {
         return this.sections.get(name) || null;
     }
 
     /**
-     * Deletes a section from the record.
-     * @param {string} name The name of the section to delete.
+     * Deletes a section (cannot delete 'main').
+     * @param {string} name
+     * @throws {Error} When trying to delete 'main' section.
      */
     deleteSection(name) {
+        if (name === 'main') throw new Error('Cannot delete the main section');
         this.sections.delete(name);
     }
 
     /**
-     * Checks if a section exists in the record.
-     * @param {string} name The name of the section to check.
-     * @return {boolean} True if the section exists, false otherwise.
+     * Checks if a section exists.
+     * @param {string} name
+     * @returns {boolean}
      */
     hasSection(name) {
         return this.sections.has(name);
     }
 
     /**
-     * Sets a section in the record.
-     * @param {Section} section The section to set.
+     * Sets a section (overwrites if exists). Updates mainSection reference if name is 'main'.
+     * @param {Section} section
      */
     setSection(section) {
         this.sections.set(section.name, section);
+        if (section.name === 'main') this.mainSection = section;
     }
 
     /**
-     * Retrieves all sections in the record.
-     * @return {Section[]} An array of all sections in the record.
+     * Returns all sections.
+     * @returns {Section[]}
      */
     getSections() {
         return Array.from(this.sections.values());
     }
 
     /**
-     * Adds a field to a section in the record.
-     * @param {Field} field The field to add.
-     * @param {string} [sectionName="main"] The name of the section to add the field to. If the section does not exist, it will be created.
+     * Returns the main section.
+     * @returns {Section}
      */
-    addField(field, sectionName = "main") {
+    getMainSection() {
+        return this.mainSection;
+    }
+
+    /**
+     * Adds a field to a section (creates the section if it does not exist).
+     * @param {Field} field
+     * @param {string} [sectionName='main']
+     */
+    addField(field, sectionName = 'main') {
         let section = this.sections.get(sectionName);
-        if (!section) {
-            section = this.addSection(sectionName);
-        }
+        if (!section) section = this.addSection(sectionName);
         section.addField(field);
     }
 
     /**
-     * Retrieves a field from the record by its name and section.
-     * @param {string} name The name of the field to retrieve.
-     * @param {string} [sectionName="main"] The name of the section to retrieve the field from. Defaults to "main" if not specified.
-     * @return {Field|null} The field if found, otherwise null.
+     * Retrieves a field from a section.
+     * @param {string} name
+     * @param {string} [sectionName='main']
+     * @returns {Field|null}
      */
-    getField(name, sectionName = "main") {
-        let section = this.sections.get(sectionName);
-        if (!section) return null;
-
-        return section.getField(name);
+    getField(name, sectionName = 'main') {
+        const section = this.sections.get(sectionName);
+        return section ? section.getField(name) : null;
     }
 
     /**
-     * Checks if a field exists in a specified section of the record.
-     * @param {string} name The name of the field to check.
-     * @param {string} [sectionName="main"] The name of the section to check within. Defaults to "main" if not specified.
-     * @return {boolean} True if the field exists in the specified section, false otherwise.
+     * Checks if a field exists in a section.
+     * @param {string} name
+     * @param {string} [sectionName='main']
+     * @returns {boolean}
      */
-
-    hasField(name, sectionName = "main") {
-        let section = this.sections.get(sectionName);
-        if (!section) return false;
-
-        return section.hasField(name);
+    hasField(name, sectionName = 'main') {
+        const section = this.sections.get(sectionName);
+        return section ? section.hasField(name) : false;
     }
 
     /**
-     * Sets a field in a specified section of the record.
-     * @param {Field} field The field to set.
-     * @param {string} [sectionName="main"] The name of the section to set the field in. Defaults to "main" if not specified.
+     * Sets a field in a section (creates section if needed, overwrites existing field).
+     * @param {Field} field
+     * @param {string} [sectionName='main']
      */
-    setField(field, sectionName = "main") {
+    setField(field, sectionName = 'main') {
         let section = this.sections.get(sectionName);
-        if (!section) {
-            section = this.addSection(sectionName);
-        }
+        if (!section) section = this.addSection(sectionName);
         section.setField(field);
     }
 
     /**
-     * Deletes a field from a specified section of the record.
-     * @param {string} name The name of the field to delete.
-     * @param {string} [sectionName="main"] The name of the section to delete the field from. Defaults to "main" if not specified.
+     * Deletes a field from a section.
+     * @param {string} name
+     * @param {string} [sectionName='main']
+     * @returns {boolean} True if the field existed and was deleted.
      */
-    deleteField(name, sectionName = "main") {
-        let section = this.sections.get(sectionName);
-        if (!section) return null;
-
+    deleteField(name, sectionName = 'main') {
+        const section = this.sections.get(sectionName);
+        if (!section) return false;
+        const existed = section.hasField(name);
         section.deleteField(name);
+        return existed;
     }
 
     /**
-     * Retrieves all fields in the specified section of the record.
-     * @param {string} [sectionName="main"] The name of the section to retrieve the fields from. Defaults to "main" if not specified.
-     * @return {Field[]|null} The fields in the specified section, or null if the section does not exist.
+     * Returns all fields in a section.
+     * @param {string} [sectionName='main']
+     * @returns {Field[]}
      */
-    getFields(sectionName = "main") {
-        let section = this.sections.get(sectionName);
-        if (!section) return null;
-
-        return section.getFields();
-    }
-
-    #descriptionToString() {
-        if (!this.description) {
-            return "";
-        }
-
-        return (
-            "// " +
-            this.description.replace(/"/g, "&quot;").replace(/\r?\n/g, "\\n")
-        ).trim();
+    getFields(sectionName = 'main') {
+        const section = this.sections.get(sectionName);
+        return section ? section.getFields() : [];
     }
 
     /**
-     * Converts the record to a string representation.
-     * @return {string} The string representation of the record.
+     * Checks if an attribute exists on the record.
+     * @param {string} name
+     * @returns {boolean}
+     */
+    hasAttribute(name) {
+        return this.attributes.has(name);
+    }
+
+    /**
+     * Gets an attribute value.
+     * @param {string} name
+     * @returns {string|null}
+     */
+    getAttribute(name) {
+        return this.attributes.get(name) ?? null;
+    }
+
+    /**
+     * Deletes an attribute.
+     * @param {string} name
+     */
+    deleteAttribute(name) {
+        this.attributes.delete(name);
+    }
+
+    /**
+     * Sets an attribute on the record.
+     * @param {string} name
+     * @param {string} value
+     */
+    setAttribute(name, value) {
+        this.attributes.set(name, value);
+    }
+
+    /**
+     * Returns the DSL string representation of the record.
+     * @returns {string}
      */
     stringify() {
-        let result = [];
-
-        let name = this.getFullName();
-        let desc = this.#descriptionToString();
-        result.push(`${name}    ${desc}`.trim());
-
-        for (let section of this.sections.values())
-            result.push(section.stringify());
-        return result.join("\n");
+        const fullName = this.getFullName();
+        const header = stringifyHead(fullName, this.attributes, this.description);
+        const parts = [header];
+        for (const section of this.sections.values()) {
+            const secStr = section.stringify();
+            if (secStr) parts.push(secStr);
+        }
+        return parts.join('\n');
     }
 
     /**
-     * Converts the record to a JSON-compatible object.
-     * @returns {object} A JSON-compatible object with "name", "description", and "sections" properties.
-     *                   The "sections" property is an array of JSON-compatible sections.
+     * Returns a JSON-compatible object.
+     * @returns {{
+     *   name: string,
+     *   entityName: string,
+     *   propertyName: string|null,
+     *   actionName: string|null,
+     *   verb: string|null,
+     *   description: string|null,
+     *   attributes: Array<[string, string]>,
+     *   sections: Array<ReturnType<Section['toJSON']>>
+     * }}
      */
     toJSON() {
         return {
@@ -249,9 +272,30 @@ export class Record {
             actionName: this.actionName,
             verb: this.verb,
             description: this.description,
-            sections: Array.from(this.sections.values()).map((section) =>
-                section.toJSON()
-            ),
+            attributes: Array.from(this.attributes.entries()),
+            sections: this.getSections().map(s => s.toJSON()),
         };
+    }
+
+    /**
+     * Creates a deep copy of the record.
+     * @returns {Record}
+     */
+    clone() {
+        const record = new Record(
+            this.entityName,
+            this.propertyName,
+            this.actionName,
+            this.description,
+            Object.fromEntries(this.attributes)
+        );
+        for (const [name, section] of this.sections) {
+            if (name === 'main') {
+                for (const f of section.getFields()) record.mainSection.setField(f.clone());
+            } else {
+                record.setSection(section.clone());
+            }
+        }
+        return record;
     }
 }

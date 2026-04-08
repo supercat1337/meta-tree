@@ -1,8 +1,8 @@
 // @ts-check
 
-import { Record } from "./record.js";
+import { Record } from './record.js';
 
-class Tree {
+export class Tree {
     /** @type {Map<string, Record>} */
     records = new Map();
 
@@ -10,105 +10,88 @@ class Tree {
 
     /**
      * Adds a new record to the tree.
-     * @param {string} entityName - The name of the entity for the record.
-     * @param {string|null} propertyName - The name of the property for the record, or null if not applicable.
-     * @param {string|null} actionName - The actionName associated with the record, or null if not applicable.
-     * @param {string|null} description - The description of the record, or null if not applicable.
-     * @returns {Record} The newly created record.
+     * @param {string} entityName
+     * @param {string|null} [propertyName=null]
+     * @param {string|null} [actionName=null]
+     * @param {string|null} [description=null]
+     * @returns {Record}
+     * @throws {Error} When a record with the same full name already exists.
      */
-    addRecord(
-        entityName,
-        propertyName = null,
-        actionName = null,
-        description = null
-    ) {
-        let record = new Record(
-            entityName,
-            propertyName,
-            actionName,
-            description
-        );
-        let fullName = record.getFullName();
-
-        if (this.records.has(fullName))
-            throw new Error(`Record already exists: ${fullName}`);
-
+    addRecord(entityName, propertyName = null, actionName = null, description = null) {
+        const record = new Record(entityName, propertyName, actionName, description);
+        const fullName = record.getFullName();
+        if (this.records.has(fullName)) throw new Error(`Record already exists: ${fullName}`);
         this.records.set(fullName, record);
-
         return record;
     }
 
     /**
-     * Checks if a record exists in the tree by its full name.
-     * @param {string} recordFullName - The full name of the record to check.
-     * @returns {boolean} True if the record exists, false otherwise.
+     * Checks if a record exists by its full name.
+     * @param {string} recordFullName
+     * @returns {boolean}
      */
     hasRecord(recordFullName) {
         return this.records.has(recordFullName);
     }
 
     /**
-     * Retrieves a record from the tree by its full name.
-     * @param {string} recordFullName - The full name of the record to retrieve.
-     * @returns {Record|null} The record if found, otherwise null.
+     * Retrieves a record by its full name.
+     * @param {string} recordFullName
+     * @returns {Record|null}
      */
     getRecord(recordFullName) {
         return this.records.get(recordFullName) || null;
     }
 
     /**
-     * Deletes a record from the tree by its full name.
-     * @param {string} recordFullName - The full name of the record to delete.
+     * Deletes a record.
+     * @param {string} recordFullName
      */
     deleteRecord(recordFullName) {
         this.records.delete(recordFullName);
     }
 
     /**
-     * Retrieves all records in the tree.
-     * @returns {Record[]} An array of all records in the tree.
+     * Returns all records in the tree.
+     * @returns {Record[]}
      */
     getRecords() {
         return Array.from(this.records.values());
     }
 
     /**
-     * Sets a record in the tree, overwriting any existing record with the same full name.
-     * @param {Record} record - The record to set.
+     * Sets a record (overwrites if exists).
+     * @param {Record} record
      */
     setRecord(record) {
         this.records.set(record.getFullName(), record);
     }
 
     /**
-     * Retrieves all record names in the tree.
-     * @returns {string[]} An array of all record names in the tree.
+     * Returns all record full names.
+     * @returns {string[]}
      */
     getRecordNames() {
         return Array.from(this.records.keys());
     }
 
     /**
-     * Converts all records in the tree to their string representations and joins them.
-     * @returns {string} A string representation of all records, separated by two newlines.
+     * Serializes the entire tree to a DSL string.
+     * @returns {string}
      */
     stringify() {
         return Array.from(this.records.values())
-            .map((record) => record.stringify())
-            .join("\n\n");
+            .map(record => record.stringify())
+            .join('\n\n');
     }
 
     /**
-     * Converts the tree to a JSON-compatible object.
-     * @returns {object} A JSON-compatible object with a "records" property that is an array of JSON-compatible records.
+     * Returns a JSON-compatible object.
+     * @returns {{ records: Array<ReturnType<Record['toJSON']>> }}
      */
     toJSON() {
         return {
-            records: Array.from(this.records.values()).map((record) =>
-                record.toJSON()
-            ),
+            records: Array.from(this.records.values()).map(r => r.toJSON()),
         };
     }
 }
-
-export { Tree };

@@ -6,16 +6,59 @@
  * @returns {"get"|"set"|"add"|"delete"|"list"|"check"|null} The verb of the action, or null if it could not be determined.
  */
 export function getVerbFromActionName(actionName) {
-    if (actionName === null) return null;
     if (!actionName) return null;
+    const lower = actionName.trim().toLowerCase();
 
-    actionName = actionName.trim();
+    if (
+        lower.startsWith('get') ||
+        lower.startsWith('fetch') ||
+        lower.startsWith('retrieve') ||
+        lower.startsWith('find')
+    )
+        return 'get';
 
-    if (actionName.startsWith("get")) return "get";
-    else if (actionName.startsWith("set")) return "set";
-    else if (actionName.startsWith("add")) return "add";
-    else if (actionName.startsWith("delete")) return "delete";
-    else if (/list/i.test(actionName)) return "list";
-    else if (actionName.startsWith("check")) return "check";
-    else return "check";
+    if (
+        lower.startsWith('set') ||
+        lower.startsWith('update') ||
+        lower.startsWith('put') ||
+        lower.startsWith('patch') ||
+        lower.startsWith('replace')
+    )
+        return 'set';
+
+    if (
+        lower.startsWith('add') ||
+        lower.startsWith('create') ||
+        lower.startsWith('post') ||
+        lower.startsWith('insert') ||
+        lower.startsWith('new')
+    )
+        return 'add';
+
+    if (
+        lower.startsWith('delete') ||
+        lower.startsWith('remove') ||
+        lower.startsWith('del') ||
+        lower.startsWith('erase')
+    )
+        return 'delete';
+
+    if (
+        lower.includes('list') ||
+        lower.startsWith('search') ||
+        lower.startsWith('query') ||
+        lower.startsWith('findall') ||
+        lower.startsWith('getall')
+    )
+        return 'list';
+
+    if (
+        lower.startsWith('check') ||
+        lower.startsWith('validate') ||
+        lower.startsWith('verify') ||
+        lower.startsWith('test')
+    )
+        return 'check';
+
+    return 'check'; // fallback
 }

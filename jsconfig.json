@@ -1,13 +1,9 @@
 {
     "compilerOptions": {
-      "baseUrl": ".",
-      "target": "ESNext",
-      "module": "NodeNext",
-      "noEmit": true,
-      "lib": [
-          "DOM",
-          "ES2020"
-        ],
+        "target": "ESNext",
+        "module": "NodeNext",
+        "noEmit": true,
+        "lib": ["DOM", "ES2020"],
         "moduleResolution": "NodeNext"
     },
     "exclude": ["dist/*"],

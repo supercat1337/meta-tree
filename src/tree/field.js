@@ -1,33 +1,31 @@
 // @ts-check
 
-class Field {
+import { parseHead, stringifyHead } from '../tools/head-parser.js';
+
+export class Field {
     /** @type {string} */
     name;
-
     /** @type {Map<string, string>} */
     attributes = new Map();
-
     /** @type {boolean} */
-    isOptional = false;
-
+    isOptional;
     /** @type {string|null} */
     defaultValue;
-
     /** @type {string|null} */
     description;
 
     /**
-     * @param {string} name
-     * @param {boolean} [isOptional=false]
-     * @param {string|null} [defaultValue=null]
-     * @param {string|null} [description=null]
+     * Creates a new Field.
+     * @param {string} name - Field name (allowed: letters, digits, underscore, dot).
+     * @param {boolean} [isOptional=false] - Whether the field is optional.
+     * @param {string|null} [defaultValue=null] - Default value for optional field.
+     * @param {string|null} [description=null] - Description/comment.
+     * @throws {Error} When name is invalid.
      */
-    constructor(
-        name,
-        isOptional = false,
-        defaultValue = null,
-        description = null
-    ) {
+    constructor(name, isOptional = false, defaultValue = null, description = null) {
+        if (typeof name !== 'string' || !/^[a-zA-Z0-9_\.]+$/.test(name)) {
+            throw new Error(`Invalid field name: ${name}`);
+        }
         this.name = name;
         this.isOptional = isOptional;
         this.defaultValue = defaultValue;
@@ -35,85 +33,71 @@ class Field {
     }
 
     /**
-     * @param {string} name
-     * @return {boolean}
+     * Checks if an attribute exists.
+     * @param {string} name - Attribute name.
+     * @returns {boolean}
      */
     hasAttribute(name) {
         return this.attributes.has(name);
     }
 
     /**
-     * @param {string} name
-     * @return {string|null}
+     * Gets an attribute value.
+     * @param {string} name - Attribute name.
+     * @returns {string|null} Value or null if not set.
      */
     getAttribute(name) {
-        if (!this.attributes.has(name)) {
-            return null;
-        }
-        return this.attributes.get(name) || "";
+        return this.attributes.get(name) ?? null;
     }
 
     /**
-     * Deletes an attribute from the field.
-     * @param {string} name The name of the attribute to delete.
+     * Deletes an attribute.
+     * @param {string} name
      */
     deleteAttribute(name) {
         this.attributes.delete(name);
     }
 
     /**
-     * Sets an attribute for the field.
-     * @param {string} name
-     * @param {number|string} [value=null]
+     * Sets an attribute.
+     * @param {string} name - Attribute name.
+     * @param {number|string} [value=''] - Attribute value (empty string for valueless).
      */
-    setAttribute(name, value = "") {
-        if (typeof value !== "string") {
-            value = String(value);
-        }
-
+    setAttribute(name, value = '') {
+        if (typeof value !== 'string') value = String(value);
         this.attributes.set(name, value);
     }
 
-    #attrsToString() {
-        return Array.from(this.attributes.entries())
-            .map(([name, value]) => {
-                if (value) {
-                    let v = value
-                        .replace(/"/g, '\\"')
-                        .replace(/'/g, "\\'")
-                        .replace(/\r?\n/g, "\\n");
-                    return `${name}="${v}"`;
-                }
-                return name;
-            })
-            .join(" ");
-    }
-
-    #descriptionToString() {
-        if (!this.description) {
-            return "";
-        }
-
-        return (
-            "// " +
-            this.description.replace(/"/g, "&quot;").replace(/\r?\n/g, "\\n")
-        ).trim();
-    }
-
+    /**
+     * Converts the field to its DSL string representation.
+     * @returns {string}
+     */
     stringify() {
-        let nameStr = this.isOptional
-            ? `[${this.name}="${this.defaultValue}"]`
-            : this.name;
-        let attrs = this.#attrsToString();
-        let desc = this.#descriptionToString();
-        return `${nameStr}    ${attrs} ${desc}`.trim();
+        let namePart = this.name;
+        if (this.isOptional) {
+            if (this.defaultValue !== null && this.defaultValue !== '') {
+                const escaped = JSON.stringify(this.defaultValue).slice(1, -1);
+                namePart = `[${this.name}="${escaped}"]`;
+            } else {
+                namePart = `[${this.name}]`;
+            }
+        }
+        const attrsDesc = stringifyHead('', this.attributes, this.description);
+        if (attrsDesc) {
+            return `${namePart}    ${attrsDesc}`;
+        }
+        return namePart;
     }
 
     /**
-     * Converts the field to a JSON-compatible object.
-     * @returns {object} A JSON-compatible object with "name", "isOptional", "defaultValue",
-     *                   "description", and "attributes" properties. The "attributes" property
-     *                   is an array of key-value pairs representing the field's attributes.
+     * Returns a JSON-compatible object.
+     * @returns {{
+     *   name: string,
+     *   isOptional: boolean,
+     *   defaultValue: string|null,
+     *   description: string|null,
+     *   attributes: Array<[string, string]>
+     * }}
      */
     toJSON() {
         return {
@@ -124,6 +108,34 @@ class Field {
             attributes: Array.from(this.attributes.entries()),
         };
     }
-}
 
-export { Field };
+    /**
+     * Creates a deep copy of the field.
+     * @returns {Field}
+     */
+    clone() {
+        const f = new Field(this.name, this.isOptional, this.defaultValue, this.description);
+        for (const [k, v] of this.attributes) f.setAttribute(k, v);
+        return f;
+    }
+
+    /**
+     * Renames the field.
+     * @param {string} name - New name (validated).
+     * @throws {Error} When name is invalid.
+     */
+    setName(name) {
+        if (typeof name !== 'string' || !/^[a-zA-Z0-9_\.]+$/.test(name)) {
+            throw new Error(`Invalid field name: ${name}`);
+        }
+        this.name = name;
+    }
+
+    /**
+     * Returns the field name.
+     * @returns {string}
+     */
+    getName() {
+        return this.name;
+    }
+}

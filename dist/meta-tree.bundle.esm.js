@@ -1,88 +1,185 @@
+// src/tools/head-parser.js
+function escapeComment(str) {
+  return str.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+}
+function unescapeComment(str) {
+  return str.replace(/\\([nrt\\])/g, (match, p1) => {
+    switch (p1) {
+      case "n":
+        return "\n";
+      case "r":
+        return "\r";
+      case "t":
+        return "	";
+      case "\\":
+        return "\\";
+      default:
+        return match;
+    }
+  });
+}
+function parseAttributes(str) {
+  const attrs = /* @__PURE__ */ new Map();
+  const trimmed = str.trim();
+  if (!trimmed) return attrs;
+  const regex = /([\w$-]+)(?:=("(?:\\"|[^"])*"|'(?:\\'|[^'])*'|([^\s]+)))?/g;
+  let match;
+  while ((match = regex.exec(trimmed)) !== null) {
+    const key = match[1];
+    let value = "";
+    if (match[2]) {
+      let inner = match[2].slice(1, -1);
+      try {
+        value = JSON.parse('"' + inner + '"');
+      } catch (e) {
+        value = inner.replace(/\\(["'])/g, "$1");
+      }
+    } else if (match[3]) {
+      value = match[3];
+    } else {
+      value = "";
+    }
+    attrs.set(key, value);
+  }
+  return attrs;
+}
+function parseHead(str) {
+  const trimmed = str.trim();
+  if (trimmed === "") {
+    return { name: "", attributes: /* @__PURE__ */ new Map(), description: null };
+  }
+  const nameMatch = trimmed.match(/^(\S+)/);
+  const name = nameMatch ? nameMatch[1] : "";
+  let rest = trimmed.slice(name.length).trim();
+  let description = null;
+  const commentIndex = rest.indexOf("//");
+  if (commentIndex !== -1) {
+    const rawDesc = rest.slice(commentIndex + 2).trim();
+    if (rawDesc) description = unescapeComment(rawDesc);
+    rest = rest.slice(0, commentIndex).trim();
+  }
+  const attributes = parseAttributes(rest);
+  return { name, attributes, description };
+}
+function stringifyHead(name, attributes, description) {
+  const parts = name ? [name] : [];
+  const attrStrings = [];
+  for (const [key, val] of attributes) {
+    if (val === "") {
+      attrStrings.push(key);
+    } else {
+      const escaped = JSON.stringify(val).slice(1, -1);
+      attrStrings.push(`${key}="${escaped}"`);
+    }
+  }
+  if (attrStrings.length) parts.push(attrStrings.join(" "));
+  if (description) parts.push(`// ${escapeComment(description)}`);
+  return parts.join(" ");
+}
+function parseAttributesAndComment(str) {
+  const trimmed = str.trim();
+  let description = null;
+  let attrsStr = trimmed;
+  const commentIndex = trimmed.indexOf("//");
+  if (commentIndex !== -1) {
+    const rawDesc = trimmed.slice(commentIndex + 2).trim();
+    if (rawDesc) description = unescapeComment(rawDesc);
+    attrsStr = trimmed.slice(0, commentIndex).trim();
+  }
+  const attributes = parseAttributes(attrsStr);
+  return { attributes, description };
+}
+
 // src/tree/field.js
-var Field = class {
+var Field = class _Field {
   /** @type {string} */
   name;
   /** @type {Map<string, string>} */
   attributes = /* @__PURE__ */ new Map();
   /** @type {boolean} */
-  isOptional = false;
+  isOptional;
   /** @type {string|null} */
   defaultValue;
   /** @type {string|null} */
   description;
   /**
-   * @param {string} name
-   * @param {boolean} [isOptional=false]
-   * @param {string|null} [defaultValue=null]
-   * @param {string|null} [description=null]
+   * Creates a new Field.
+   * @param {string} name - Field name (allowed: letters, digits, underscore, dot).
+   * @param {boolean} [isOptional=false] - Whether the field is optional.
+   * @param {string|null} [defaultValue=null] - Default value for optional field.
+   * @param {string|null} [description=null] - Description/comment.
+   * @throws {Error} When name is invalid.
    */
   constructor(name, isOptional = false, defaultValue = null, description = null) {
+    if (typeof name !== "string" || !/^[a-zA-Z0-9_\.]+$/.test(name)) {
+      throw new Error(`Invalid field name: ${name}`);
+    }
     this.name = name;
     this.isOptional = isOptional;
     this.defaultValue = defaultValue;
     this.description = description;
   }
   /**
-   * @param {string} name
-   * @return {boolean}
+   * Checks if an attribute exists.
+   * @param {string} name - Attribute name.
+   * @returns {boolean}
    */
   hasAttribute(name) {
     return this.attributes.has(name);
   }
   /**
-   * @param {string} name
-   * @return {string|null}
+   * Gets an attribute value.
+   * @param {string} name - Attribute name.
+   * @returns {string|null} Value or null if not set.
    */
   getAttribute(name) {
-    if (!this.attributes.has(name)) {
-      return null;
-    }
-    return this.attributes.get(name) || "";
+    return this.attributes.get(name) ?? null;
   }
   /**
-   * Deletes an attribute from the field.
-   * @param {string} name The name of the attribute to delete.
+   * Deletes an attribute.
+   * @param {string} name
    */
   deleteAttribute(name) {
     this.attributes.delete(name);
   }
   /**
-   * Sets an attribute for the field.
-   * @param {string} name
-   * @param {number|string} [value=null]
+   * Sets an attribute.
+   * @param {string} name - Attribute name.
+   * @param {number|string} [value=''] - Attribute value (empty string for valueless).
    */
   setAttribute(name, value = "") {
-    if (typeof value !== "string") {
-      value = String(value);
-    }
+    if (typeof value !== "string") value = String(value);
     this.attributes.set(name, value);
   }
-  #attrsToString() {
-    return Array.from(this.attributes.entries()).map(([name, value]) => {
-      if (value) {
-        let v = value.replace(/"/g, '\\"').replace(/'/g, "\\'").replace(/\r?\n/g, "\\n");
-        return `${name}="${v}"`;
-      }
-      return name;
-    }).join(" ");
-  }
-  #descriptionToString() {
-    if (!this.description) {
-      return "";
-    }
-    return ("// " + this.description.replace(/"/g, "&quot;").replace(/\r?\n/g, "\\n")).trim();
-  }
+  /**
+   * Converts the field to its DSL string representation.
+   * @returns {string}
+   */
   stringify() {
-    let nameStr = this.isOptional ? `[${this.name}="${this.defaultValue}"]` : this.name;
-    let attrs = this.#attrsToString();
-    let desc = this.#descriptionToString();
-    return `${nameStr}    ${attrs} ${desc}`.trim();
+    let namePart = this.name;
+    if (this.isOptional) {
+      if (this.defaultValue !== null && this.defaultValue !== "") {
+        const escaped = JSON.stringify(this.defaultValue).slice(1, -1);
+        namePart = `[${this.name}="${escaped}"]`;
+      } else {
+        namePart = `[${this.name}]`;
+      }
+    }
+    const attrsDesc = stringifyHead("", this.attributes, this.description);
+    if (attrsDesc) {
+      return `${namePart}    ${attrsDesc}`;
+    }
+    return namePart;
   }
   /**
-   * Converts the field to a JSON-compatible object.
-   * @returns {object} A JSON-compatible object with "name", "isOptional", "defaultValue",
-   *                   "description", and "attributes" properties. The "attributes" property
-   *                   is an array of key-value pairs representing the field's attributes.
+   * Returns a JSON-compatible object.
+   * @returns {{
+   *   name: string,
+   *   isOptional: boolean,
+   *   defaultValue: string|null,
+   *   description: string|null,
+   *   attributes: Array<[string, string]>
+   * }}
    */
   toJSON() {
     return {
@@ -93,121 +190,231 @@ var Field = class {
       attributes: Array.from(this.attributes.entries())
     };
   }
+  /**
+   * Creates a deep copy of the field.
+   * @returns {Field}
+   */
+  clone() {
+    const f = new _Field(this.name, this.isOptional, this.defaultValue, this.description);
+    for (const [k, v] of this.attributes) f.setAttribute(k, v);
+    return f;
+  }
+  /**
+   * Renames the field.
+   * @param {string} name - New name (validated).
+   * @throws {Error} When name is invalid.
+   */
+  setName(name) {
+    if (typeof name !== "string" || !/^[a-zA-Z0-9_\.]+$/.test(name)) {
+      throw new Error(`Invalid field name: ${name}`);
+    }
+    this.name = name;
+  }
+  /**
+   * Returns the field name.
+   * @returns {string}
+   */
+  getName() {
+    return this.name;
+  }
 };
 
 // src/tree/section.js
-var Section = class {
+var Section = class _Section {
   /** @type {string} */
   name;
   /** @type {Map<string, Field>} */
   fields = /* @__PURE__ */ new Map();
+  /** @type {Map<string, string>} */
+  attributes = /* @__PURE__ */ new Map();
+  /** @type {string|null} */
+  description = null;
   /**
-   * @param {string} name
+   * Creates a new Section.
+   * @param {string} name - Section name (no spaces, allowed: letters, digits, underscore, dot, hyphen).
+   * @param {Object<string, string>} [attributes] - Section attributes.
+   * @param {string|null} [description] - Section description.
+   * @throws {Error} When name is invalid.
    */
-  constructor(name) {
-    if (/\s/.test(name))
-      throw new Error(`Section name cannot contain spaces: ${name}`);
+  constructor(name, attributes = {}, description = null) {
     if (name.length === 0) throw new Error("Section name cannot be empty");
+    if (/\s/.test(name)) throw new Error(`Section name cannot contain spaces: ${name}`);
+    if (!/^[a-zA-Z0-9_.-]+$/.test(name)) throw new Error(`Invalid section name: ${name}`);
     this.name = name;
+    this.description = description;
+    for (const [k, v] of Object.entries(attributes)) this.setAttribute(k, v);
   }
   /**
-   * Adds a field to the section.
-   * @param {Field} field The field to add.
+   * Adds a field. Throws if a field with the same name already exists.
+   * @param {Field} field
+   * @throws {Error} When field name already exists.
    */
   addField(field) {
-    if (this.hasField(field.name))
-      throw new Error(`Field already exists: ${field.name}`);
-    this.fields.set(field.name, field);
+    if (this.hasField(field.name)) throw new Error(`Field already exists: ${field.name}`);
+    this.setField(field);
   }
   /**
-   * Checks if a field exists in the section.
-   * @param {string} name The name of the field to check.
-   * @return {boolean} True if the field exists, false if not.
+   * Checks if a field exists.
+   * @param {string} name
+   * @returns {boolean}
    */
   hasField(name) {
     return this.fields.has(name);
   }
   /**
-   * Retrieves a field from the section by its name.
-   * @param {string} name The name of the field to retrieve.
-   * @return {Field|null} The field if found, otherwise null.
+   * Retrieves a field by name.
+   * @param {string} name
+   * @returns {Field|null}
    */
   getField(name) {
-    let field = this.fields.get(name);
-    if (!field) return null;
-    return field;
+    return this.fields.get(name) || null;
   }
   /**
-   * Sets a field in the section by its name.
-   * @param {Field} field The field to set.
-   * @throws Will throw an error if the field already exists.
+   * Sets a field (overwrites if exists).
+   * @param {Field} field
    */
   setField(field) {
     this.fields.set(field.name, field);
   }
   /**
-   * Deletes a field from the section by its name.
-   * @param {string} name The name of the field to delete.
+   * Deletes a field.
+   * @param {string} name
    */
   deleteField(name) {
     this.fields.delete(name);
   }
   /**
-   * Retrieves all fields in the section.
-   * @return {Field[]} An array of all fields in the section.
+   * Returns all fields in the section.
+   * @returns {Field[]}
    */
   getFields() {
     return Array.from(this.fields.values());
   }
   /**
-   * @return {string} The string representation of the section.
+   * Returns all field names.
+   * @returns {string[]}
    */
-  stringify(padding = "    ") {
-    let fieldsArray = [];
-    this.fields.forEach((field) => {
-      fieldsArray.push(field.stringify());
-    });
-    let fields = fieldsArray.map((field) => padding + field).join("\n");
-    if (this.name == "main") {
-      return `${fields}
-`;
-    } else {
-      return `${padding + "@" + this.name}
-${fields}
-`;
-    }
+  getFieldNames() {
+    return Array.from(this.fields.keys());
   }
   /**
-   * Converts the section to a JSON-compatible object.
-   * @returns {object} A JSON-compatible object with "name" and "fields" properties.
-   *                   The "fields" property is an array of JSON-compatible fields.
+   * Checks if an attribute exists.
+   * @param {string} name
+   * @returns {boolean}
+   */
+  hasAttribute(name) {
+    return this.attributes.has(name);
+  }
+  /**
+   * Gets an attribute value.
+   * @param {string} name
+   * @returns {string|null}
+   */
+  getAttribute(name) {
+    return this.attributes.get(name) ?? null;
+  }
+  /**
+   * Deletes an attribute.
+   * @param {string} name
+   */
+  deleteAttribute(name) {
+    this.attributes.delete(name);
+  }
+  /**
+   * Sets an attribute.
+   * @param {string} name
+   * @param {string} value
+   */
+  setAttribute(name, value) {
+    this.attributes.set(name, value);
+  }
+  /**
+   * Returns the DSL string representation of the section.
+   * @param {string} [padding='    '] - Indentation string.
+   * @returns {string}
+   */
+  stringify(padding = "    ") {
+    const fieldsArray = this.getFields().map((f) => f.stringify());
+    if (fieldsArray.length === 0 && this.name === "main") return "";
+    const fieldsStr = fieldsArray.map((f) => padding + f).join("\n");
+    if (this.name === "main") return fieldsStr;
+    const header = stringifyHead(`@${this.name}`, this.attributes, this.description);
+    const indentedHeader = padding + header;
+    if (fieldsStr) return `${indentedHeader}
+${fieldsStr}`;
+    return indentedHeader;
+  }
+  /**
+   * Returns a JSON-compatible object.
+   * @returns {{
+   *   name: string,
+   *   description: string|null,
+   *   attributes: Array<[string, string]>,
+   *   fields: Array<ReturnType<Field['toJSON']>>
+   * }}
    */
   toJSON() {
     return {
       name: this.name,
-      fields: Array.from(this.fields.values()).map(
-        (field) => field.toJSON()
-      )
+      description: this.description,
+      attributes: Array.from(this.attributes.entries()),
+      fields: this.getFields().map((f) => f.toJSON())
     };
+  }
+  /**
+   * Creates a deep copy of the section.
+   * @returns {Section}
+   */
+  clone() {
+    const section = new _Section(
+      this.name,
+      Object.fromEntries(this.attributes),
+      this.description
+    );
+    for (const f of this.getFields()) section.addField(f.clone());
+    return section;
+  }
+  /**
+   * Renames the section.
+   * @param {string} newName
+   * @throws {Error} When name is invalid.
+   */
+  setName(newName) {
+    if (newName.length === 0) throw new Error("Section name cannot be empty");
+    if (/\s/.test(newName)) throw new Error(`Section name cannot contain spaces: ${newName}`);
+    if (!/^[a-zA-Z0-9_.-]+$/.test(newName)) throw new Error(`Invalid section name: ${newName}`);
+    this.name = newName;
+  }
+  /**
+   * Returns the section name.
+   * @returns {string}
+   */
+  getName() {
+    return this.name;
   }
 };
 
 // src/tools/tools.js
 function getVerbFromActionName(actionName) {
-  if (actionName === null) return null;
   if (!actionName) return null;
-  actionName = actionName.trim();
-  if (actionName.startsWith("get")) return "get";
-  else if (actionName.startsWith("set")) return "set";
-  else if (actionName.startsWith("add")) return "add";
-  else if (actionName.startsWith("delete")) return "delete";
-  else if (/list/i.test(actionName)) return "list";
-  else if (actionName.startsWith("check")) return "check";
-  else return "check";
+  const lower = actionName.trim().toLowerCase();
+  if (lower.startsWith("get") || lower.startsWith("fetch") || lower.startsWith("retrieve") || lower.startsWith("find"))
+    return "get";
+  if (lower.startsWith("set") || lower.startsWith("update") || lower.startsWith("put") || lower.startsWith("patch") || lower.startsWith("replace"))
+    return "set";
+  if (lower.startsWith("add") || lower.startsWith("create") || lower.startsWith("post") || lower.startsWith("insert") || lower.startsWith("new"))
+    return "add";
+  if (lower.startsWith("delete") || lower.startsWith("remove") || lower.startsWith("del") || lower.startsWith("erase"))
+    return "delete";
+  if (lower.includes("list") || lower.startsWith("search") || lower.startsWith("query") || lower.startsWith("findall") || lower.startsWith("getall"))
+    return "list";
+  if (lower.startsWith("check") || lower.startsWith("validate") || lower.startsWith("verify") || lower.startsWith("test"))
+    return "check";
+  return "check";
 }
 
 // src/tree/record.js
-var Record = class {
+var Record = class _Record {
   /** @type {string} */
   entityName;
   /** @type {string|null} */
@@ -222,37 +429,37 @@ var Record = class {
   mainSection;
   /** @type {string|null} */
   description;
+  /** @type {Map<string, string>} */
+  attributes = /* @__PURE__ */ new Map();
   /**
    * Creates a new Record.
-   * @param {string} entityName
-   * @param {string|null} propertyName
-   * @param {string|null} actionName
-   * @param {string|null} description
+   * @param {string} entityName - Entity name (letters, digits, underscore, hyphen).
+   * @param {string|null} propertyName - Property name (optional, may contain dots).
+   * @param {string|null} actionName - Action name (optional).
+   * @param {string|null} [description] - Record description.
+   * @param {Object<string, string>} [attributes] - Record attributes.
+   * @throws {Error} When any name is invalid.
    */
-  constructor(entityName, propertyName, actionName = null, description = null) {
+  constructor(entityName, propertyName, actionName = null, description = null, attributes = {}) {
+    if (!/^[a-zA-Z0-9_-]+$/.test(entityName))
+      throw new Error(`Invalid entity name: ${entityName}`);
+    if (propertyName !== null && !/^[a-zA-Z0-9_.-]+$/.test(propertyName))
+      throw new Error(`Invalid property name: ${propertyName}`);
+    if (actionName !== null && !/^[a-zA-Z0-9_-]+$/.test(actionName))
+      throw new Error(`Invalid action name: ${actionName}`);
     this.entityName = entityName;
     this.propertyName = propertyName;
     this.actionName = actionName;
     this.verb = getVerbFromActionName(actionName);
-    if (/\s/.test(entityName))
-      throw new Error(`Entity name cannot contain spaces: ${entityName}`);
-    if (entityName.length === 0)
-      throw new Error("Entity name cannot be empty");
-    if (propertyName && /\s/.test(propertyName))
-      throw new Error(
-        `Property name cannot contain spaces: ${propertyName}`
-      );
-    if (propertyName && propertyName.length === 0)
-      throw new Error("Property name cannot be empty");
+    this.description = description;
     this.sections = /* @__PURE__ */ new Map();
     this.mainSection = new Section("main");
     this.sections.set("main", this.mainSection);
-    this.description = description;
+    for (const [k, v] of Object.entries(attributes)) this.setAttribute(k, v);
   }
   /**
-   * Constructs the full name of the record by concatenating the entity name,
-   * property name, and verb, if they exist.
-   * @return {string} The full name of the record.
+   * Constructs full record name: entity.property.action.
+   * @returns {string}
    */
   getFullName() {
     let name = this.entityName;
@@ -261,144 +468,186 @@ var Record = class {
     return name;
   }
   /**
-   * Adds a new section to the record.
-   * @param {string} name The name of the section to add. Must be unique and cannot contain spaces.
-   * @throws Will throw an error if the section already exists.
-   * @return {Section} The newly created section.
+   * Adds a new section.
+   * @param {string} name - Section name (unique).
+   * @param {Object<string, string>} [attributes] - Section attributes.
+   * @param {string|null} [description] - Section description.
+   * @returns {Section} The newly created section.
+   * @throws {Error} When section already exists.
    */
-  addSection(name) {
-    if (this.sections.has(name))
-      throw new Error(`Section already exists: ${name}`);
-    let section = new Section(name);
+  addSection(name, attributes = {}, description = null) {
+    if (this.sections.has(name)) throw new Error(`Section already exists: ${name}`);
+    const section = new Section(name, attributes, description);
     this.sections.set(name, section);
+    if (name === "main") this.mainSection = section;
     return section;
   }
   /**
-   * Retrieves a section from the record by its name.
-   * @param {string} name The name of the section to retrieve.
-   * @return {Section|null} The section if found, otherwise null.
+   * Retrieves a section by name.
+   * @param {string} name
+   * @returns {Section|null}
    */
   getSection(name) {
     return this.sections.get(name) || null;
   }
   /**
-   * Deletes a section from the record.
-   * @param {string} name The name of the section to delete.
+   * Deletes a section (cannot delete 'main').
+   * @param {string} name
+   * @throws {Error} When trying to delete 'main' section.
    */
   deleteSection(name) {
+    if (name === "main") throw new Error("Cannot delete the main section");
     this.sections.delete(name);
   }
   /**
-   * Checks if a section exists in the record.
-   * @param {string} name The name of the section to check.
-   * @return {boolean} True if the section exists, false otherwise.
+   * Checks if a section exists.
+   * @param {string} name
+   * @returns {boolean}
    */
   hasSection(name) {
     return this.sections.has(name);
   }
   /**
-   * Sets a section in the record.
-   * @param {Section} section The section to set.
+   * Sets a section (overwrites if exists). Updates mainSection reference if name is 'main'.
+   * @param {Section} section
    */
   setSection(section) {
     this.sections.set(section.name, section);
+    if (section.name === "main") this.mainSection = section;
   }
   /**
-   * Retrieves all sections in the record.
-   * @return {Section[]} An array of all sections in the record.
+   * Returns all sections.
+   * @returns {Section[]}
    */
   getSections() {
     return Array.from(this.sections.values());
   }
   /**
-   * Adds a field to a section in the record.
-   * @param {Field} field The field to add.
-   * @param {string} [sectionName="main"] The name of the section to add the field to. If the section does not exist, it will be created.
+   * Returns the main section.
+   * @returns {Section}
+   */
+  getMainSection() {
+    return this.mainSection;
+  }
+  /**
+   * Adds a field to a section (creates the section if it does not exist).
+   * @param {Field} field
+   * @param {string} [sectionName='main']
    */
   addField(field, sectionName = "main") {
     let section = this.sections.get(sectionName);
-    if (!section) {
-      section = this.addSection(sectionName);
-    }
+    if (!section) section = this.addSection(sectionName);
     section.addField(field);
   }
   /**
-   * Retrieves a field from the record by its name and section.
-   * @param {string} name The name of the field to retrieve.
-   * @param {string} [sectionName="main"] The name of the section to retrieve the field from. Defaults to "main" if not specified.
-   * @return {Field|null} The field if found, otherwise null.
+   * Retrieves a field from a section.
+   * @param {string} name
+   * @param {string} [sectionName='main']
+   * @returns {Field|null}
    */
   getField(name, sectionName = "main") {
-    let section = this.sections.get(sectionName);
-    if (!section) return null;
-    return section.getField(name);
+    const section = this.sections.get(sectionName);
+    return section ? section.getField(name) : null;
   }
   /**
-   * Checks if a field exists in a specified section of the record.
-   * @param {string} name The name of the field to check.
-   * @param {string} [sectionName="main"] The name of the section to check within. Defaults to "main" if not specified.
-   * @return {boolean} True if the field exists in the specified section, false otherwise.
+   * Checks if a field exists in a section.
+   * @param {string} name
+   * @param {string} [sectionName='main']
+   * @returns {boolean}
    */
   hasField(name, sectionName = "main") {
-    let section = this.sections.get(sectionName);
-    if (!section) return false;
-    return section.hasField(name);
+    const section = this.sections.get(sectionName);
+    return section ? section.hasField(name) : false;
   }
   /**
-   * Sets a field in a specified section of the record.
-   * @param {Field} field The field to set.
-   * @param {string} [sectionName="main"] The name of the section to set the field in. Defaults to "main" if not specified.
+   * Sets a field in a section (creates section if needed, overwrites existing field).
+   * @param {Field} field
+   * @param {string} [sectionName='main']
    */
   setField(field, sectionName = "main") {
     let section = this.sections.get(sectionName);
-    if (!section) {
-      section = this.addSection(sectionName);
-    }
+    if (!section) section = this.addSection(sectionName);
     section.setField(field);
   }
   /**
-   * Deletes a field from a specified section of the record.
-   * @param {string} name The name of the field to delete.
-   * @param {string} [sectionName="main"] The name of the section to delete the field from. Defaults to "main" if not specified.
+   * Deletes a field from a section.
+   * @param {string} name
+   * @param {string} [sectionName='main']
+   * @returns {boolean} True if the field existed and was deleted.
    */
   deleteField(name, sectionName = "main") {
-    let section = this.sections.get(sectionName);
-    if (!section) return null;
+    const section = this.sections.get(sectionName);
+    if (!section) return false;
+    const existed = section.hasField(name);
     section.deleteField(name);
+    return existed;
   }
   /**
-   * Retrieves all fields in the specified section of the record.
-   * @param {string} [sectionName="main"] The name of the section to retrieve the fields from. Defaults to "main" if not specified.
-   * @return {Field[]|null} The fields in the specified section, or null if the section does not exist.
+   * Returns all fields in a section.
+   * @param {string} [sectionName='main']
+   * @returns {Field[]}
    */
   getFields(sectionName = "main") {
-    let section = this.sections.get(sectionName);
-    if (!section) return null;
-    return section.getFields();
-  }
-  #descriptionToString() {
-    if (!this.description) {
-      return "";
-    }
-    return ("// " + this.description.replace(/"/g, "&quot;").replace(/\r?\n/g, "\\n")).trim();
+    const section = this.sections.get(sectionName);
+    return section ? section.getFields() : [];
   }
   /**
-   * Converts the record to a string representation.
-   * @return {string} The string representation of the record.
+   * Checks if an attribute exists on the record.
+   * @param {string} name
+   * @returns {boolean}
+   */
+  hasAttribute(name) {
+    return this.attributes.has(name);
+  }
+  /**
+   * Gets an attribute value.
+   * @param {string} name
+   * @returns {string|null}
+   */
+  getAttribute(name) {
+    return this.attributes.get(name) ?? null;
+  }
+  /**
+   * Deletes an attribute.
+   * @param {string} name
+   */
+  deleteAttribute(name) {
+    this.attributes.delete(name);
+  }
+  /**
+   * Sets an attribute on the record.
+   * @param {string} name
+   * @param {string} value
+   */
+  setAttribute(name, value) {
+    this.attributes.set(name, value);
+  }
+  /**
+   * Returns the DSL string representation of the record.
+   * @returns {string}
    */
   stringify() {
-    let result = [];
-    let name = this.getFullName();
-    let desc = this.#descriptionToString();
-    result.push(`${name}    ${desc}`.trim());
-    for (let section of this.sections.values())
-      result.push(section.stringify());
-    return result.join("\n");
+    const fullName = this.getFullName();
+    const header = stringifyHead(fullName, this.attributes, this.description);
+    const parts = [header];
+    for (const section of this.sections.values()) {
+      const secStr = section.stringify();
+      if (secStr) parts.push(secStr);
+    }
+    return parts.join("\n");
   }
   /**
-   * Converts the record to a JSON-compatible object.
-   * @returns {object} A JSON-compatible object with "name", "description", and "sections" properties.
-   *                   The "sections" property is an array of JSON-compatible sections.
+   * Returns a JSON-compatible object.
+   * @returns {{
+   *   name: string,
+   *   entityName: string,
+   *   propertyName: string|null,
+   *   actionName: string|null,
+   *   verb: string|null,
+   *   description: string|null,
+   *   attributes: Array<[string, string]>,
+   *   sections: Array<ReturnType<Section['toJSON']>>
+   * }}
    */
   toJSON() {
     return {
@@ -408,10 +657,30 @@ var Record = class {
       actionName: this.actionName,
       verb: this.verb,
       description: this.description,
-      sections: Array.from(this.sections.values()).map(
-        (section) => section.toJSON()
-      )
+      attributes: Array.from(this.attributes.entries()),
+      sections: this.getSections().map((s) => s.toJSON())
     };
+  }
+  /**
+   * Creates a deep copy of the record.
+   * @returns {Record}
+   */
+  clone() {
+    const record = new _Record(
+      this.entityName,
+      this.propertyName,
+      this.actionName,
+      this.description,
+      Object.fromEntries(this.attributes)
+    );
+    for (const [name, section] of this.sections) {
+      if (name === "main") {
+        for (const f of section.getFields()) record.mainSection.setField(f.clone());
+      } else {
+        record.setSection(section.clone());
+      }
+    }
+    return record;
   }
 };
 
@@ -423,85 +692,78 @@ var Tree = class {
   }
   /**
    * Adds a new record to the tree.
-   * @param {string} entityName - The name of the entity for the record.
-   * @param {string|null} propertyName - The name of the property for the record, or null if not applicable.
-   * @param {string|null} actionName - The actionName associated with the record, or null if not applicable.
-   * @param {string|null} description - The description of the record, or null if not applicable.
-   * @returns {Record} The newly created record.
+   * @param {string} entityName
+   * @param {string|null} [propertyName=null]
+   * @param {string|null} [actionName=null]
+   * @param {string|null} [description=null]
+   * @returns {Record}
+   * @throws {Error} When a record with the same full name already exists.
    */
   addRecord(entityName, propertyName = null, actionName = null, description = null) {
-    let record = new Record(
-      entityName,
-      propertyName,
-      actionName,
-      description
-    );
-    let fullName = record.getFullName();
-    if (this.records.has(fullName))
-      throw new Error(`Record already exists: ${fullName}`);
+    const record = new Record(entityName, propertyName, actionName, description);
+    const fullName = record.getFullName();
+    if (this.records.has(fullName)) throw new Error(`Record already exists: ${fullName}`);
     this.records.set(fullName, record);
     return record;
   }
   /**
-   * Checks if a record exists in the tree by its full name.
-   * @param {string} recordFullName - The full name of the record to check.
-   * @returns {boolean} True if the record exists, false otherwise.
+   * Checks if a record exists by its full name.
+   * @param {string} recordFullName
+   * @returns {boolean}
    */
   hasRecord(recordFullName) {
     return this.records.has(recordFullName);
   }
   /**
-   * Retrieves a record from the tree by its full name.
-   * @param {string} recordFullName - The full name of the record to retrieve.
-   * @returns {Record|null} The record if found, otherwise null.
+   * Retrieves a record by its full name.
+   * @param {string} recordFullName
+   * @returns {Record|null}
    */
   getRecord(recordFullName) {
     return this.records.get(recordFullName) || null;
   }
   /**
-   * Deletes a record from the tree by its full name.
-   * @param {string} recordFullName - The full name of the record to delete.
+   * Deletes a record.
+   * @param {string} recordFullName
    */
   deleteRecord(recordFullName) {
     this.records.delete(recordFullName);
   }
   /**
-   * Retrieves all records in the tree.
-   * @returns {Record[]} An array of all records in the tree.
+   * Returns all records in the tree.
+   * @returns {Record[]}
    */
   getRecords() {
     return Array.from(this.records.values());
   }
   /**
-   * Sets a record in the tree, overwriting any existing record with the same full name.
-   * @param {Record} record - The record to set.
+   * Sets a record (overwrites if exists).
+   * @param {Record} record
    */
   setRecord(record) {
     this.records.set(record.getFullName(), record);
   }
   /**
-   * Retrieves all record names in the tree.
-   * @returns {string[]} An array of all record names in the tree.
+   * Returns all record full names.
+   * @returns {string[]}
    */
   getRecordNames() {
     return Array.from(this.records.keys());
   }
   /**
-   * Converts all records in the tree to their string representations and joins them.
-   * @returns {string} A string representation of all records, separated by two newlines.
+   * Serializes the entire tree to a DSL string.
+   * @returns {string}
    */
   stringify() {
     return Array.from(this.records.values()).map((record) => record.stringify()).join("\n\n");
   }
   /**
-   * Converts the tree to a JSON-compatible object.
-   * @returns {object} A JSON-compatible object with a "records" property that is an array of JSON-compatible records.
+   * Returns a JSON-compatible object.
+   * @returns {{ records: Array<ReturnType<Record['toJSON']>> }}
    */
   toJSON() {
     return {
-      records: Array.from(this.records.values()).map(
-        (record) => record.toJSON()
-      )
+      records: Array.from(this.records.values()).map((r) => r.toJSON())
     };
   }
 };
@@ -511,116 +773,116 @@ function isRecordDeclaration(line) {
   return !/^\s/.test(line) && !isSectionDeclaration(line);
 }
 function isSectionDeclaration(line) {
-  return line.startsWith("@");
+  return line.trim().startsWith("@");
 }
-function parseRecordDeclaration(line) {
-  line = line.trim();
-  let fullName = line.split(/\s+/)[0];
-  let d = line.split(/\/\//)[1]?.trim();
-  let description = typeof d === "undefined" ? null : d;
-  let nameParts = fullName.split(".");
-  let entityName = nameParts[0];
-  let propertyName = null;
-  let actionName = null;
-  nameParts.shift();
-  if (nameParts.length > 0) {
-    actionName = nameParts[nameParts.length - 1];
-    nameParts.pop();
-  }
-  if (nameParts.length > 0) {
-    propertyName = nameParts.join(".");
-  }
-  return { entityName, propertyName, actionName, description };
-}
-function parseSectionDeclaration(line) {
-  let m = line.match(/^@([\w_\.]+)/);
-  return m ? m[1] : null;
-}
-function parseHtmlAttributes(inputString) {
-  const attributes = {};
-  let comment = null;
-  const attrRegex = /(\$?[^\s=]+)(?:\s*=\s*("(?:\\"|[^"])*"|'(?:\\'|[^'])*'|\$?[^\s]*)|$)?/g;
-  let match;
-  while ((match = attrRegex.exec(inputString)) !== null) {
-    const name = match[1];
-    if (name.startsWith("//")) {
-      comment = match.input.slice(match.index + 2).trim();
-      if (comment == "") comment = null;
-      break;
-    }
-    let rawValue = match[2];
-    let value = null;
-    if (rawValue) {
-      if (rawValue.startsWith('"') && rawValue.endsWith('"') || rawValue.startsWith("'") && rawValue.endsWith("'")) {
-        value = rawValue.slice(1, -1).replace(/\\(["'])/g, "$1");
-      } else {
-        value = rawValue;
-      }
-    }
-    attributes[name] = value === null ? "" : value;
-  }
-  return { attributes, comment };
+function parseSectionLine(line) {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("@")) return null;
+  const withoutAt = trimmed.slice(1);
+  const { name, attributes, description } = parseHead(withoutAt);
+  return { name, attributes, description };
 }
 function parseField(line) {
-  let fieldName = null;
+  const trimmed = line.trim();
+  if (trimmed === "") throw new Error("Empty field line");
+  let fieldName = "";
   let isOptional = false;
   let defaultValue = null;
-  let attrsStr = "";
-  let description = null;
-  if (line.startsWith("[")) {
-    let end = line.indexOf("]");
-    if (end === -1) throw new Error(`Invalid field: ${line}`);
-    let f = line.slice(1, end);
-    let { attributes: attrs2 } = parseHtmlAttributes(f);
-    let [name, value] = Object.entries(attrs2)[0];
-    fieldName = name;
-    isOptional = true;
-    defaultValue = value;
-    attrsStr = line.slice(end + 1).trim();
+  let rest = "";
+  if (trimmed.startsWith("[")) {
+    const endBracket = trimmed.indexOf("]");
+    if (endBracket === -1) throw new Error(`Invalid field (missing closing bracket): ${line}`);
+    const bracketContent = trimmed.slice(1, endBracket);
+    const eqPos = bracketContent.indexOf("=");
+    if (eqPos !== -1) {
+      fieldName = bracketContent.slice(0, eqPos).trim();
+      let valuePart = bracketContent.slice(eqPos + 1).trim();
+      if (valuePart.startsWith('"') && valuePart.endsWith('"') || valuePart.startsWith("'") && valuePart.endsWith("'")) {
+        valuePart = valuePart.slice(1, -1);
+        try {
+          defaultValue = JSON.parse('"' + valuePart + '"');
+        } catch (e) {
+          defaultValue = valuePart;
+        }
+      } else {
+        defaultValue = valuePart;
+      }
+      isOptional = true;
+    } else {
+      fieldName = bracketContent.trim();
+      isOptional = true;
+      defaultValue = null;
+    }
+    rest = trimmed.slice(endBracket + 1).trim();
   } else {
-    let m = line.match(/^([a-zA-Z0-9_\.]+)/);
-    fieldName = m ? m[1] : null;
-    if (!fieldName) throw new Error(`Invalid field: ${line}`);
-    isOptional = line[fieldName.length] === "?";
-    attrsStr = line.slice(fieldName.length + (isOptional ? 1 : 0)).trim();
+    const nameMatch = trimmed.match(/^[a-zA-Z0-9_\.]+/);
+    if (!nameMatch) throw new Error(`Invalid field name: ${line}`);
+    fieldName = nameMatch[0];
+    let afterName = trimmed.slice(fieldName.length);
+    if (afterName.startsWith("?")) {
+      isOptional = true;
+      afterName = afterName.slice(1);
+    } else {
+      isOptional = false;
+    }
+    rest = afterName.trim();
   }
-  let field = new Field(fieldName, isOptional, defaultValue);
-  let { attributes: attrs, comment } = parseHtmlAttributes(attrsStr);
-  for (let [name, value] of Object.entries(attrs)) {
-    field.setAttribute(name, value);
+  const field = new Field(fieldName, isOptional, defaultValue);
+  if (rest) {
+    const { attributes, description } = parseAttributesAndComment(rest);
+    for (const [k, v] of attributes) field.setAttribute(k, v);
+    if (description) field.description = description;
   }
-  field.description = comment;
   return field;
 }
 function treeFromString(treeString) {
-  let tree = new Tree();
-  let lines = treeString.split("\n");
+  const tree = new Tree();
+  const lines = treeString.split("\n");
   let currentRecord = null;
   let currentSectionName = "main";
   for (let line of lines) {
     if (line.trim() === "") continue;
     if (isRecordDeclaration(line)) {
-      let { entityName, propertyName, actionName, description } = parseRecordDeclaration(line);
-      currentRecord = tree.addRecord(
-        entityName,
-        propertyName,
-        actionName,
-        description
-      );
+      const { name, attributes, description } = parseHead(line);
+      const parts = name.split(".");
+      const entityName = parts[0];
+      let propertyName = null;
+      let actionName = null;
+      if (parts.length > 1) {
+        actionName = parts[parts.length - 1];
+        if (parts.length > 2) {
+          propertyName = parts.slice(1, -1).join(".");
+        } else {
+          propertyName = null;
+        }
+      }
+      currentRecord = tree.addRecord(entityName, propertyName, actionName, description);
+      for (const [k, v] of attributes) currentRecord.setAttribute(k, v);
       currentSectionName = "main";
       continue;
     }
     if (currentRecord === null) continue;
     line = line.trim();
+    if (line === "") continue;
     if (isSectionDeclaration(line)) {
-      let sectionName = parseSectionDeclaration(line);
-      if (!sectionName) continue;
-      currentRecord.addSection(sectionName);
-      currentSectionName = sectionName;
+      const parsed = parseSectionLine(line);
+      if (!parsed) continue;
+      const { name, attributes, description } = parsed;
+      let section = currentRecord.getSection(name);
+      if (!section) {
+        section = currentRecord.addSection(
+          name,
+          Object.fromEntries(attributes),
+          description
+        );
+      } else {
+        for (const [k, v] of attributes) section.setAttribute(k, v);
+        if (description) section.description = description;
+      }
+      currentSectionName = name;
       continue;
     }
-    if (line === "") continue;
-    let field = parseField(line);
+    const field = parseField(line);
     currentRecord.addField(field, currentSectionName);
   }
   return tree;

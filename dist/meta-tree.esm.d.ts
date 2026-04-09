@@ -108,13 +108,13 @@ export class Record {
     /**
      * Creates a new Record.
      * @param {string} entityName - Entity name (letters, digits, underscore, hyphen).
-     * @param {string|null} propertyName - Property name (optional, may contain dots).
-     * @param {string|null} actionName - Action name (optional).
+     * @param {string|null} [propertyName] - Property name (optional, may contain dots).
+     * @param {string|null} [actionName] - Action name (optional).
      * @param {string|null} [description] - Record description.
      * @param {Object<string, string>} [attributes] - Record attributes.
      * @throws {Error} When any name is invalid.
      */
-    constructor(entityName: string, propertyName: string | null, actionName?: string | null, description?: string | null, attributes?: {
+    constructor(entityName: string, propertyName?: string | null, actionName?: string | null, description?: string | null, attributes?: {
         [x: string]: string;
     });
     /** @type {string} */

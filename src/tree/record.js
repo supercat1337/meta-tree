@@ -26,19 +26,45 @@ export class Record {
     /**
      * Creates a new Record.
      * @param {string} entityName - Entity name (letters, digits, underscore, hyphen).
-     * @param {string|null} propertyName - Property name (optional, may contain dots).
-     * @param {string|null} actionName - Action name (optional).
+     * @param {string|null} [propertyName] - Property name (optional, may contain dots).
+     * @param {string|null} [actionName] - Action name (optional).
      * @param {string|null} [description] - Record description.
      * @param {Object<string, string>} [attributes] - Record attributes.
      * @throws {Error} When any name is invalid.
      */
-    constructor(entityName, propertyName, actionName = null, description = null, attributes = {}) {
-        if (!/^[a-zA-Z0-9_-]+$/.test(entityName))
-            throw new Error(`Invalid entity name: ${entityName}`);
-        if (propertyName !== null && !/^[a-zA-Z0-9_.-]+$/.test(propertyName))
-            throw new Error(`Invalid property name: ${propertyName}`);
-        if (actionName !== null && !/^[a-zA-Z0-9_-]+$/.test(actionName))
-            throw new Error(`Invalid action name: ${actionName}`);
+    constructor(entityName, propertyName = null, actionName = null, description = null, attributes = {}) {
+        if (typeof entityName !== 'string' || entityName.length === 0) {
+            throw new Error(`Entity name must be a non-empty string, got "${entityName}"`);
+        }
+        if (!/^[a-zA-Z0-9_-]+$/.test(entityName)) {
+            throw new Error(
+                `Invalid entity name: "${entityName}" – allowed characters: a-z, A-Z, 0-9, _, -`
+            );
+        }
+        if (propertyName !== null) {
+            if (typeof propertyName !== 'string' || propertyName.length === 0) {
+                throw new Error(
+                    `Property name must be a non-empty string or null, got "${propertyName}"`
+                );
+            }
+            if (!/^[a-zA-Z0-9_.-]+$/.test(propertyName)) {
+                throw new Error(
+                    `Invalid property name: "${propertyName}" – allowed characters: a-z, A-Z, 0-9, _, ., -`
+                );
+            }
+        }
+        if (actionName !== null) {
+            if (typeof actionName !== 'string' || actionName.length === 0) {
+                throw new Error(
+                    `Action name must be a non-empty string or null, got "${actionName}"`
+                );
+            }
+            if (!/^[a-zA-Z0-9_-]+$/.test(actionName)) {
+                throw new Error(
+                    `Invalid action name: "${actionName}" – allowed characters: a-z, A-Z, 0-9, _, -`
+                );
+            }
+        }
 
         this.entityName = entityName;
         this.propertyName = propertyName;

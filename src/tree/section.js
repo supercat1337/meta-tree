@@ -21,9 +21,20 @@ export class Section {
      * @throws {Error} When name is invalid.
      */
     constructor(name, attributes = {}, description = null) {
-        if (name.length === 0) throw new Error('Section name cannot be empty');
-        if (/\s/.test(name)) throw new Error(`Section name cannot contain spaces: ${name}`);
-        if (!/^[a-zA-Z0-9_.-]+$/.test(name)) throw new Error(`Invalid section name: ${name}`);
+        if (typeof name !== 'string') {
+            throw new Error(`Section name must be a string, got ${typeof name}`);
+        }
+        if (name.length === 0) {
+            throw new Error('Section name cannot be empty');
+        }
+        if (/\s/.test(name)) {
+            throw new Error(`Section name cannot contain spaces: "${name}"`);
+        }
+        if (!/^[a-zA-Z0-9_.-]+$/.test(name)) {
+            throw new Error(
+                `Invalid section name: "${name}" – allowed characters: a-z, A-Z, 0-9, _, ., -`
+            );
+        }
         this.name = name;
         this.description = description;
         for (const [k, v] of Object.entries(attributes)) this.setAttribute(k, v);

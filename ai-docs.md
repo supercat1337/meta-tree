@@ -22,6 +22,21 @@ This document provides structured guidelines for writing and understanding Meta-
 - Entity, property, action, field, section, macro, and attribute names must match regex: `[a-zA-Z0-9_.-]+`
 - **Forbidden**: spaces, `@`, `#`, `[`, `]`, `=`, `/`, `\` (dot and hyphen are allowed).
 
+### 0.4. Record Uniqueness
+
+- The full name of a record (`entity[.property][.verb]`) must be unique within a single Tree.
+- Duplicate names cause a parse error (thrown by `treeFromString` or `treeFromStringWithMacros`).
+- This ensures each API method or entity can be unambiguously referenced.
+
+### 0.5. Comments
+
+Two types of comments are supported:
+
+- **Inline comments** – appear after DSL code on the same line, e.g., `field    type="string" // description`. They are preserved in the object model (as `description` property of the corresponding element).
+- **Standalone comments** – lines that contain only `// ...` (with optional leading spaces). They are **ignored** by the parser and do not appear in the tree. They serve only for human readability.
+
+No multi-line comments; use multiple standalone comment lines if needed.
+
 ## 1. Hierarchical Overview
 
 The Meta-Tree DSL defines a strict hierarchy:
@@ -71,9 +86,20 @@ user.profile.update version="2.0" // Updates user profile
 
 ### 3.2. Comments
 
-- Inline comments start with `//` and continue to end of line.
-- Comments are preserved and can be extracted by code generators.
+- **Inline comments** start with `//` and continue to the end of the line. They are attached to the preceding element (record, section, or field) and are preserved in the parsed object (e.g., `field.description`).
+- **Standalone comments** (lines that contain only `//` with optional leading spaces) are ignored by the parser and **not stored** in the resulting tree. They serve as human-readable annotations only.
 - No multi-line comments; use multiple `//` lines if needed.
+
+### Example
+
+```
+// This is a comment about the whole file
+
+user.profile.update
+    username    maxLength="32" // field comment
+    // another comment inside the record
+    password    minLength="8"
+```
 
 ### 3.3. Names
 

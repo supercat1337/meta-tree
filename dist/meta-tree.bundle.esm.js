@@ -134,8 +134,16 @@ var Field = class _Field {
    * @throws {Error} When name is invalid.
    */
   constructor(name, isOptional = false, defaultValue = null, description = null) {
-    if (typeof name !== "string" || !/^[a-zA-Z0-9_\.]+$/.test(name)) {
-      throw new Error(`Invalid field name: ${name}`);
+    if (typeof name !== "string") {
+      throw new Error(`Field name must be a string, got ${typeof name}`);
+    }
+    if (name.length === 0) {
+      throw new Error("Field name cannot be empty");
+    }
+    if (!/^[a-zA-Z0-9_\.]+$/.test(name)) {
+      throw new Error(
+        `Invalid field name: "${name}" \u2013 allowed characters: a-z, A-Z, 0-9, _, .`
+      );
     }
     this.name = name;
     this.isOptional = isOptional;
@@ -260,9 +268,20 @@ var Section = class _Section {
    * @throws {Error} When name is invalid.
    */
   constructor(name, attributes = {}, description = null) {
-    if (name.length === 0) throw new Error("Section name cannot be empty");
-    if (/\s/.test(name)) throw new Error(`Section name cannot contain spaces: ${name}`);
-    if (!/^[a-zA-Z0-9_.-]+$/.test(name)) throw new Error(`Invalid section name: ${name}`);
+    if (typeof name !== "string") {
+      throw new Error(`Section name must be a string, got ${typeof name}`);
+    }
+    if (name.length === 0) {
+      throw new Error("Section name cannot be empty");
+    }
+    if (/\s/.test(name)) {
+      throw new Error(`Section name cannot contain spaces: "${name}"`);
+    }
+    if (!/^[a-zA-Z0-9_.-]+$/.test(name)) {
+      throw new Error(
+        `Invalid section name: "${name}" \u2013 allowed characters: a-z, A-Z, 0-9, _, ., -`
+      );
+    }
     this.name = name;
     this.description = description;
     for (const [k, v] of Object.entries(attributes)) this.setAttribute(k, v);
@@ -457,19 +476,45 @@ var Record = class _Record {
   /**
    * Creates a new Record.
    * @param {string} entityName - Entity name (letters, digits, underscore, hyphen).
-   * @param {string|null} propertyName - Property name (optional, may contain dots).
-   * @param {string|null} actionName - Action name (optional).
+   * @param {string|null} [propertyName] - Property name (optional, may contain dots).
+   * @param {string|null} [actionName] - Action name (optional).
    * @param {string|null} [description] - Record description.
    * @param {Object<string, string>} [attributes] - Record attributes.
    * @throws {Error} When any name is invalid.
    */
-  constructor(entityName, propertyName, actionName = null, description = null, attributes = {}) {
-    if (!/^[a-zA-Z0-9_-]+$/.test(entityName))
-      throw new Error(`Invalid entity name: ${entityName}`);
-    if (propertyName !== null && !/^[a-zA-Z0-9_.-]+$/.test(propertyName))
-      throw new Error(`Invalid property name: ${propertyName}`);
-    if (actionName !== null && !/^[a-zA-Z0-9_-]+$/.test(actionName))
-      throw new Error(`Invalid action name: ${actionName}`);
+  constructor(entityName, propertyName = null, actionName = null, description = null, attributes = {}) {
+    if (typeof entityName !== "string" || entityName.length === 0) {
+      throw new Error(`Entity name must be a non-empty string, got "${entityName}"`);
+    }
+    if (!/^[a-zA-Z0-9_-]+$/.test(entityName)) {
+      throw new Error(
+        `Invalid entity name: "${entityName}" \u2013 allowed characters: a-z, A-Z, 0-9, _, -`
+      );
+    }
+    if (propertyName !== null) {
+      if (typeof propertyName !== "string" || propertyName.length === 0) {
+        throw new Error(
+          `Property name must be a non-empty string or null, got "${propertyName}"`
+        );
+      }
+      if (!/^[a-zA-Z0-9_.-]+$/.test(propertyName)) {
+        throw new Error(
+          `Invalid property name: "${propertyName}" \u2013 allowed characters: a-z, A-Z, 0-9, _, ., -`
+        );
+      }
+    }
+    if (actionName !== null) {
+      if (typeof actionName !== "string" || actionName.length === 0) {
+        throw new Error(
+          `Action name must be a non-empty string or null, got "${actionName}"`
+        );
+      }
+      if (!/^[a-zA-Z0-9_-]+$/.test(actionName)) {
+        throw new Error(
+          `Invalid action name: "${actionName}" \u2013 allowed characters: a-z, A-Z, 0-9, _, -`
+        );
+      }
+    }
     this.entityName = entityName;
     this.propertyName = propertyName;
     this.actionName = actionName;
@@ -1060,50 +1105,61 @@ function treeFromString(treeString) {
   const lines = treeString.split("\n");
   let currentRecord = null;
   let currentSectionName = "main";
-  for (let line of lines) {
-    if (line.trim() === "") continue;
-    if (isRecordDeclaration(line)) {
-      const { name, attributes, description } = parseHead(line);
-      const parts = name.split(".");
-      const entityName = parts[0];
-      let propertyName = null;
-      let actionName = null;
-      if (parts.length > 1) {
-        actionName = parts[parts.length - 1];
-        if (parts.length > 2) {
-          propertyName = parts.slice(1, -1).join(".");
-        } else {
-          propertyName = null;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    const lineNumber = i + 1;
+    if (trimmed === "" || trimmed.startsWith("//")) continue;
+    try {
+      if (isRecordDeclaration(line)) {
+        const { name, attributes, description } = parseHead(line);
+        const parts = name.split(".");
+        const entityName = parts[0];
+        let propertyName = null;
+        let actionName = null;
+        if (parts.length > 1) {
+          actionName = parts[parts.length - 1];
+          if (parts.length > 2) {
+            propertyName = parts.slice(1, -1).join(".");
+          } else {
+            propertyName = null;
+          }
         }
+        currentRecord = tree.addRecord(entityName, propertyName, actionName, description);
+        for (const [k, v] of attributes) currentRecord.setAttribute(k, v);
+        currentSectionName = "main";
+        continue;
       }
-      currentRecord = tree.addRecord(entityName, propertyName, actionName, description);
-      for (const [k, v] of attributes) currentRecord.setAttribute(k, v);
-      currentSectionName = "main";
-      continue;
-    }
-    if (currentRecord === null) continue;
-    line = line.trim();
-    if (line === "") continue;
-    if (isSectionDeclaration(line)) {
-      const parsed = parseSectionLine(line);
-      if (!parsed) continue;
-      const { name, attributes, description } = parsed;
-      let section = currentRecord.getSection(name);
-      if (!section) {
-        section = currentRecord.addSection(
-          name,
-          Object.fromEntries(attributes),
-          description
-        );
-      } else {
-        for (const [k, v] of attributes) section.setAttribute(k, v);
-        if (description) section.description = description;
+      if (currentRecord === null) continue;
+      if (trimmed === "") continue;
+      if (isSectionDeclaration(trimmed)) {
+        const parsed = parseSectionLine(trimmed);
+        if (!parsed) continue;
+        const { name, attributes, description } = parsed;
+        let section = currentRecord.getSection(name);
+        if (!section) {
+          section = currentRecord.addSection(
+            name,
+            Object.fromEntries(attributes),
+            description
+          );
+        } else {
+          for (const [k, v] of attributes) section.setAttribute(k, v);
+          if (description) section.description = description;
+        }
+        currentSectionName = name;
+        continue;
       }
-      currentSectionName = name;
-      continue;
+      const field = parseField(trimmed);
+      currentRecord.addField(field, currentSectionName);
+    } catch (e) {
+      let err = e instanceof Error ? e : new Error(String(e));
+      if (!err.line) {
+        err.message = `${err.message} (at line ${lineNumber})`;
+        err.line = lineNumber;
+      }
+      throw err;
     }
-    const field = parseField(line);
-    currentRecord.addField(field, currentSectionName);
   }
   return tree;
 }

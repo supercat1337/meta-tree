@@ -117,56 +117,70 @@ export function treeFromString(treeString) {
     let currentRecord = null;
     let currentSectionName = 'main';
 
-    for (let line of lines) {
-        if (line.trim() === '') continue;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+        const lineNumber = i + 1;
+        if (trimmed === '' || trimmed.startsWith('//')) continue;
 
-        if (isRecordDeclaration(line)) {
-            const { name, attributes, description } = parseHead(line);
-            // name is like "entity.property.action" or "entity.property" or "entity"
-            const parts = name.split('.');
-            const entityName = parts[0];
-            let propertyName = null;
-            let actionName = null;
-            if (parts.length > 1) {
-                actionName = parts[parts.length - 1];
-                if (parts.length > 2) {
-                    propertyName = parts.slice(1, -1).join('.');
-                } else {
-                    propertyName = null;
+        try {
+            if (isRecordDeclaration(line)) {
+                const { name, attributes, description } = parseHead(line);
+                // name is like "entity.property.action" or "entity.property" or "entity"
+                const parts = name.split('.');
+                const entityName = parts[0];
+                let propertyName = null;
+                let actionName = null;
+                if (parts.length > 1) {
+                    actionName = parts[parts.length - 1];
+                    if (parts.length > 2) {
+                        propertyName = parts.slice(1, -1).join('.');
+                    } else {
+                        propertyName = null;
+                    }
                 }
+                currentRecord = tree.addRecord(entityName, propertyName, actionName, description);
+                for (const [k, v] of attributes) currentRecord.setAttribute(k, v);
+                currentSectionName = 'main';
+                continue;
             }
-            currentRecord = tree.addRecord(entityName, propertyName, actionName, description);
-            for (const [k, v] of attributes) currentRecord.setAttribute(k, v);
-            currentSectionName = 'main';
-            continue;
-        }
 
-        if (currentRecord === null) continue;
-        line = line.trim();
-        if (line === '') continue;
+            if (currentRecord === null) continue;
 
-        if (isSectionDeclaration(line)) {
-            const parsed = parseSectionLine(line);
-            if (!parsed) continue;
-            const { name, attributes, description } = parsed;
-            let section = currentRecord.getSection(name);
-            if (!section) {
-                section = currentRecord.addSection(
-                    name,
-                    Object.fromEntries(attributes),
-                    description
-                );
-            } else {
-                for (const [k, v] of attributes) section.setAttribute(k, v);
-                if (description) section.description = description;
+            if (trimmed === '') continue;
+
+            if (isSectionDeclaration(trimmed)) {
+                const parsed = parseSectionLine(trimmed);
+                if (!parsed) continue;
+                const { name, attributes, description } = parsed;
+                let section = currentRecord.getSection(name);
+                if (!section) {
+                    section = currentRecord.addSection(
+                        name,
+                        Object.fromEntries(attributes),
+                        description
+                    );
+                } else {
+                    for (const [k, v] of attributes) section.setAttribute(k, v);
+                    if (description) section.description = description;
+                }
+                currentSectionName = name;
+                continue;
             }
-            currentSectionName = name;
-            continue;
-        }
 
-        // Otherwise it's a field line
-        const field = parseField(line);
-        currentRecord.addField(field, currentSectionName);
+            // Otherwise it's a field line
+            const field = parseField(trimmed);
+            currentRecord.addField(field, currentSectionName);
+        } catch (e) {
+            let err = e instanceof Error? e: new Error(String(e));
+            // @ts-ignore
+            if (!err.line) {
+                err.message = `${err.message} (at line ${lineNumber})`;
+                // @ts-ignore
+                err.line = lineNumber;
+            }
+            throw err;
+        }
     }
 
     return tree;

@@ -23,8 +23,16 @@ export class Field {
      * @throws {Error} When name is invalid.
      */
     constructor(name, isOptional = false, defaultValue = null, description = null) {
-        if (typeof name !== 'string' || !/^[a-zA-Z0-9_\.]+$/.test(name)) {
-            throw new Error(`Invalid field name: ${name}`);
+        if (typeof name !== 'string') {
+            throw new Error(`Field name must be a string, got ${typeof name}`);
+        }
+        if (name.length === 0) {
+            throw new Error('Field name cannot be empty');
+        }
+        if (!/^[a-zA-Z0-9_\.]+$/.test(name)) {
+            throw new Error(
+                `Invalid field name: "${name}" – allowed characters: a-z, A-Z, 0-9, _, .`
+            );
         }
         this.name = name;
         this.isOptional = isOptional;

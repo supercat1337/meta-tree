@@ -87,6 +87,10 @@ const parsed = treeFromString(serialized);
 
 The DSL supports records, sections, fields, attributes, comments, and now **macros**.
 
+### Record Uniqueness
+
+Within a single Tree, each record must have a **unique full name** (`entity[.property][.verb]`). Duplicate names cause a parse error. This ensures that each API method or entity is defined only once.
+
 ### Macros
 
 Macros are expanded in a **preprocessing step** before the main parser. The preprocessor detects circular dependencies and provides clear error messages.
@@ -183,6 +187,16 @@ links.add version="1.0" // Create a new link
 - `treeFromStringWithMacros(dsl)` – preprocesses macros, then parses.
 - `preprocessMacros(dsl)` – standalone macro expansion (returns expanded DSL string).
 - `MacroPreprocessor` – class for advanced usage (custom depth limits, etc.).
+
+## Recommendations for Code Generators
+
+The library itself does not provide built‑in support for importing external type definitions (e.g., from JSON/JSON5 files). However, code generators built on top of this library are encouraged to implement such features using custom attributes like `ref` or `import`.
+
+- Use `ref="TypeName"` on a field or section to reference an external type definition.
+- Use `import="file.json5"` at the record or section level to load external schemas.
+- The code generator is responsible for loading the external file, resolving references, and generating the target code (TypeScript interfaces, OpenAPI schemas, etc.).
+
+For detailed examples and best practices, see [**AI-DOCS.md**](./ai-docs.md).
 
 ## API Reference
 

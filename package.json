@@ -1,11 +1,34 @@
 {
     "name": "@supercat1337/meta-tree",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "A JavaScript library for creating, managing, and serializing hierarchical data structures with fields, sections, and records.",
     "license": "MIT",
     "author": "Albert Bazaleev",
     "type": "module",
     "main": "index.js",
+    "types": "dist/meta-tree.esm.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/meta-tree.esm.js",
+            "default": "./index.js"
+        }
+    },
+    "engines": {
+        "node": ">=14"
+    },
+    "keywords": [
+        "tree",
+        "data-structures",
+        "serialization",
+        "dsl",
+        "rpc",
+        "schema",
+        "metadata",
+        "hierarchical-data",
+        "macro-preprocessor",
+        "code-generation",
+        "api-description"
+    ],
     "homepage": "https://github.com/supercat1337/meta-tree",
     "repository": {
         "url": "https://github.com/supercat1337/meta-tree"

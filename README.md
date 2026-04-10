@@ -187,6 +187,10 @@ links.add version="1.0" // Create a new link
 - `treeFromStringWithMacros(dsl)` – preprocesses macros, then parses.
 - `preprocessMacros(dsl)` – standalone macro expansion (returns expanded DSL string).
 - `MacroPreprocessor` – class for advanced usage (custom depth limits, etc.).
+- `expandMacros(dsl)` – parses DSL with macro definitions and calls, then serializes the resulting tree back to DSL, producing a fully expanded string without any macro calls or definitions. Equivalent to `treeFromStringWithMacros(dsl).stringify()`. Useful for debugging, generating canonical DSL, or preparing input for tools that do not support macros.
+
+    **Difference from `preprocessMacros`:**  
+     `preprocessMacros` performs only string‑based macro substitution without syntax validation, while `expandMacros` fully parses the DSL, validates its structure, and then outputs a clean, macro‑free DSL.
 
 ## Recommendations for Code Generators
 

@@ -295,6 +295,18 @@ links.get
 - Recursion protection: max depth 10 for attribute macros, cycle detection for block macros.
 - Invoke with `#`, never `@`.
 
+### 8.4. Serialization and Parsing Utilities
+
+- `tree.stringify()` – serializes a Tree object to DSL **without** macro definitions (all macros are expanded).
+- `treeFromString(dsl)` – parses a DSL string that **does not contain** macro definitions.
+- `treeFromStringWithMacros(dsl)` – preprocesses macros, then parses the DSL string (supports macro definitions and calls).
+- `preprocessMacros(dsl)` – performs standalone macro expansion on a DSL string, returning a new string with macros replaced (but without syntax validation).
+- `expandMacros(dsl)` – parses a DSL string with macros using `treeFromStringWithMacros`, then serializes the resulting tree with `tree.stringify()`. Returns a fully expanded DSL string **without any macro definitions or calls**. Useful for generating canonical DSL or for tools that do not support macros.
+
+> **Difference between `preprocessMacros` and `expandMacros`:**  
+> `preprocessMacros` does only string‑based macro substitution and may produce invalid DSL if the input has syntax errors.  
+> `expandMacros` fully validates the DSL syntax and guarantees a well‑formed output.
+
 ## 9. Complete Example (with Macros, Correct Syntax)
 
 ```

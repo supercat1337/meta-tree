@@ -455,6 +455,13 @@ export class Tree {
     };
 }
 /**
+ * Expands all macros in a DSL string, returning a full DSL string without macro calls.
+ * @param {string} dslString - DSL string containing macro definitions and calls.
+ * @returns {string} DSL string with all macros expanded to their full attribute sets.
+ * @throws {Error} If the DSL string contains syntax errors or unresolved macros.
+ */
+export function expandMacros(dslString: string): string;
+/**
  * Compatibility wrapper to match the existing API.
  * @param {string} dslString
  * @returns {string}

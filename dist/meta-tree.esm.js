@@ -183,6 +183,469 @@ function parseAttributesAndComment(str) {
 
 // @ts-check
 
+/**
+ * @typedef {Object} MacroAttr
+ * @property {'attr'} type
+ * @property {string[]} params
+ * @property {string} body
+ */
+
+/**
+ * @typedef {Object} MacroBlock
+ * @property {'block'} type
+ * @property {string[]} params
+ * @property {string} body
+ */
+
+/**
+ * Main class for DSL macro preprocessing.
+ * Handles both attribute and block macros with recursion protection.
+ */
+class MacroPreprocessor {
+    /**
+     * @param {number} [maxAttrDepth=10] - Maximum recursion depth for attribute macros.
+     */
+    constructor(maxAttrDepth = 10) {
+        /** @type {{[key:string]: (MacroAttr | MacroBlock)}} */
+        this.macros = {};
+        this.maxAttrDepth = maxAttrDepth;
+    }
+
+    /**
+     * Preprocesses the DSL string.
+     * @param {string} dslString - The raw DSL input.
+     * @returns {string} - The expanded DSL output.
+     */
+    preprocess(dslString) {
+        const lines = dslString.split(/\r?\n/);
+        const remainingLines = this._extractMacros(lines);
+        const expandedLines = this._expandMacrosInLines(remainingLines, new Set());
+        return expandedLines.join('\n');
+    }
+
+    /**
+     * Extracts macro definitions and returns only content lines.
+     * @param {string[]} lines
+     * @returns {string[]}
+     * @private
+     */
+    _extractMacros(lines) {
+        const remainingLines = [];
+        let i = 0;
+        const n = lines.length;
+
+        while (i < n) {
+            const line = lines[i];
+            const trimmed = line.trim();
+
+            if (trimmed === '' || trimmed.startsWith('//')) {
+                remainingLines.push(line);
+                i++;
+                continue;
+            }
+
+            if (trimmed.startsWith('#define-attr')) {
+                this._parseAttrDef(trimmed);
+                i++;
+            } else if (trimmed.startsWith('#define-block')) {
+                i = this._parseBlockDef(lines, i);
+            } else {
+                remainingLines.push(line);
+                i++;
+            }
+        }
+        return remainingLines;
+    }
+
+    /**
+     * Expands block macros in lines, recursively.
+     * @param {string[]} lines
+     * @param {Set<string>} callStack
+     * @returns {string[]}
+     * @private
+     */
+    _expandMacrosInLines(lines, callStack) {
+        const result = [];
+
+        for (let line of lines) {
+            const trimmed = line.trim();
+            const leadingSpaces = line.match(/^\s*/)?.[0] ?? '';
+
+            if (trimmed.startsWith('#')) {
+                const callMatch = trimmed.match(/^#([a-zA-Z_]\w*)(?:\(([^)]*)\))?/);
+                if (callMatch) {
+                    const macroName = callMatch[1];
+                    const macro = this.macros[macroName];
+
+                    if (macro && macro.type === 'block') {
+                        if (callStack.has(macroName)) {
+                            throw new Error(
+                                `Circular dependency: ${Array.from(callStack).join(' -> ')} -> ${macroName}`
+                            );
+                        }
+
+                        const argsStr = callMatch[2] || '';
+                        const args = argsStr
+                            ? argsStr
+                                  .split(',')
+                                  .map(a => a.trim())
+                                  .filter(a => a !== '')
+                            : [];
+                        if (args.length !== macro.params.length) {
+                            throw new Error(
+                                `Block macro ${macroName} expects ${macro.params.length} arguments, got ${args.length}`
+                            );
+                        }
+
+                        let body = this._replaceParams(macro.body, macro.params, args);
+                        const nextStack = new Set(callStack).add(macroName);
+                        const expandedBody = this._expandMacrosInLines(body.split('\n'), nextStack);
+
+                        for (let bLine of expandedBody) {
+                            const trimmedBody = bLine.trim();
+                            if (trimmedBody === '') {
+                                result.push('');
+                            } else {
+                                // Remove any original indentation from the macro body,
+                                // then add the invocation's leading spaces.
+                                const originalIndent = bLine.match(/^\s*/)?.[0] ?? '';
+                                const withoutIndent = bLine.slice(originalIndent.length);
+                                result.push(leadingSpaces + withoutIndent);
+                            }
+                        }
+                        continue;
+                    }
+                }
+            }
+            result.push(this._expandLineAttributes(line));
+        }
+        return result;
+    }
+
+    /**
+     * Expands inline attribute macros.
+     * @param {string} line
+     * @param {number} [depth=0]
+     * @returns {string}
+     * @private
+     */
+    _expandLineAttributes(line, depth = 0) {
+        if (depth > this.maxAttrDepth) {
+            throw new Error(`Max attribute macro depth (${this.maxAttrDepth}) exceeded`);
+        }
+
+        const regex = /#([a-zA-Z_]\w*)(?:\(([^)]*)\))?/g;
+        let result = line;
+
+        result = result.replace(regex, (match, name, /** @type {string} */ argsStr) => {
+            const macro = this.macros[name];
+            if (!macro || macro.type !== 'attr') return match;
+
+            const args = argsStr
+                ? argsStr
+                      .split(',')
+                      .map(a => a.trim())
+                      .filter(a => a !== '')
+                : [];
+            if (args.length !== macro.params.length) {
+                throw new Error(
+                    `Attribute macro ${name} expects ${macro.params.length} arguments, got ${args.length}`
+                );
+            }
+
+            let expanded = this._replaceParams(macro.body, macro.params, args);
+            return this._expandLineAttributes(expanded, depth + 1);
+        });
+
+        return result;
+    }
+
+    /**
+     * Replaces placeholders {{param}} with argument values.
+     * @param {string} body
+     * @param {string[]} params
+     * @param {string[]} args
+     * @returns {string}
+     * @private
+     */
+    _replaceParams(body, params, args) {
+        let result = body;
+        for (let i = 0; i < params.length; i++) {
+            const param = params[i];
+            const arg = args[i];
+            result = result.replace(new RegExp(`{{${param}}}`, 'g'), arg);
+        }
+        return result;
+    }
+
+    /**
+     * Parses a #define-attr directive.
+     * @param {string} trimmedLine
+     * @private
+     */
+    _parseAttrDef(trimmedLine) {
+        const match = trimmedLine.match(/^#define-attr\s+([a-zA-Z_]\w*)(?:\(([^)]*)\))?\s+(.*)$/);
+        if (!match) throw new Error('Invalid #define-attr syntax');
+        const [, name, paramsStr, body] = match;
+        if (this.macros[name]) throw new Error(`Macro already defined: ${name}`);
+        const params = paramsStr
+            ? paramsStr
+                  .split(',')
+                  .map(p => p.trim())
+                  .filter(p => p)
+            : [];
+        this.macros[name] = {
+            type: 'attr',
+            params,
+            body: body.trim(),
+        };
+    }
+
+    /**
+     * Parses a #define-block ... #end block.
+     * @param {string[]} lines
+     * @param {number} startIndex
+     * @returns {number} The index after #end.
+     * @private
+     */
+    _parseBlockDef(lines, startIndex) {
+        const header = lines[startIndex].trim();
+        const match = header.match(/^#define-block\s+([a-zA-Z_]\w*)(?:\(([^)]*)\))?/);
+        if (!match) throw new Error('Invalid #define-block syntax');
+        const name = match[1];
+        if (this.macros[name]) throw new Error(`Macro already defined: ${name}`);
+        const params = match[2]
+            ? match[2]
+                  .split(',')
+                  .map(p => p.trim())
+                  .filter(p => p)
+            : [];
+        const bodyLines = [];
+        let i = startIndex + 1;
+        const n = lines.length;
+
+        while (i < n && lines[i].trim() !== '#end') {
+            bodyLines.push(lines[i]);
+            i++;
+        }
+        if (i >= n) throw new Error(`Missing #end for macro block: ${name}`);
+
+        this.macros[name] = {
+            type: 'block',
+            params,
+            body: bodyLines.join('\n'),
+        };
+        return i + 1; // skip the #end line
+    }
+}
+
+/**
+ * Compatibility wrapper to match the existing API.
+ * @param {string} dslString
+ * @returns {string}
+ */
+function preprocessMacros(dslString) {
+    const processor = new MacroPreprocessor();
+    return processor.preprocess(dslString);
+}
+
+// @ts-check
+
+
+/**
+ * Checks if a line is a record declaration (no leading whitespace and not a section).
+ * @param {string} line
+ * @returns {boolean}
+ */
+function isRecordDeclaration(line) {
+    return !/^\s/.test(line) && !isSectionDeclaration(line);
+}
+
+/**
+ * Checks if a line is a section declaration (starts with '@' after optional whitespace).
+ * @param {string} line
+ * @returns {boolean}
+ */
+function isSectionDeclaration(line) {
+    return line.trim().startsWith('@');
+}
+
+/**
+ * Parses a section line (e.g., "@returns array=true // comment").
+ * @param {string} line
+ * @returns {{name: string, attributes: Map<string, string>, description: string|null} | null}
+ */
+function parseSectionLine(line) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('@')) return null;
+    const withoutAt = trimmed.slice(1);
+    const { name, attributes, description } = parseHead(withoutAt);
+    return { name, attributes, description };
+}
+
+/**
+ * Parses a field line (including optional/default bracket syntax).
+ * @param {string} line
+ * @returns {Field}
+ * @throws {Error} When field syntax is invalid.
+ */
+function parseField(line) {
+    const trimmed = line.trim();
+    if (trimmed === '') throw new Error('Empty field line');
+
+    let fieldName = '';
+    let isOptional = false;
+    let defaultValue = null;
+    let rest = '';
+
+    // Check for optional/default syntax: [name] or [name="value"]
+    if (trimmed.startsWith('[')) {
+        const endBracket = trimmed.indexOf(']');
+        if (endBracket === -1) throw new Error(`Invalid field (missing closing bracket): ${line}`);
+        const bracketContent = trimmed.slice(1, endBracket);
+        const eqPos = bracketContent.indexOf('=');
+        if (eqPos !== -1) {
+            // [name="value"]
+            fieldName = bracketContent.slice(0, eqPos).trim();
+            let valuePart = bracketContent.slice(eqPos + 1).trim();
+            // Remove surrounding quotes if present
+            if (
+                (valuePart.startsWith('"') && valuePart.endsWith('"')) ||
+                (valuePart.startsWith("'") && valuePart.endsWith("'"))
+            ) {
+                valuePart = valuePart.slice(1, -1);
+                try {
+                    defaultValue = JSON.parse('"' + valuePart + '"');
+                } catch (e) {
+                    defaultValue = valuePart;
+                }
+            } else {
+                defaultValue = valuePart;
+            }
+            isOptional = true;
+        } else {
+            // [name]
+            fieldName = bracketContent.trim();
+            isOptional = true;
+            defaultValue = null;
+        }
+        rest = trimmed.slice(endBracket + 1).trim();
+    } else {
+        // Regular field: name? attrs...
+        const nameMatch = trimmed.match(/^[a-zA-Z0-9_\.]+/);
+        if (!nameMatch) throw new Error(`Invalid field name: ${line}`);
+        fieldName = nameMatch[0];
+        let afterName = trimmed.slice(fieldName.length);
+        if (afterName.startsWith('?')) {
+            isOptional = true;
+            afterName = afterName.slice(1);
+        } else {
+            isOptional = false;
+        }
+        rest = afterName.trim();
+    }
+
+    const field = new Field(fieldName, isOptional, defaultValue);
+    if (rest) {
+        const { attributes, description } = parseAttributesAndComment(rest);
+        for (const [k, v] of attributes) field.setAttribute(k, v);
+        if (description) field.description = description;
+    }
+    return field;
+}
+
+/**
+ * Parses a tree string into a Tree object.
+ * @param {string} treeString - The DSL string.
+ * @returns {Tree}
+ */
+function treeFromString(treeString) {
+    const tree = new Tree();
+    const lines = treeString.split('\n');
+    let currentRecord = null;
+    let currentSectionName = 'main';
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+        const lineNumber = i + 1;
+        if (trimmed === '' || trimmed.startsWith('//')) continue;
+
+        try {
+            if (isRecordDeclaration(line)) {
+                const { name, attributes, description } = parseHead(line);
+                // name is like "entity.property.action" or "entity.property" or "entity"
+                const parts = name.split('.');
+                const entityName = parts[0];
+                let propertyName = null;
+                let actionName = null;
+                if (parts.length > 1) {
+                    actionName = parts[parts.length - 1];
+                    if (parts.length > 2) {
+                        propertyName = parts.slice(1, -1).join('.');
+                    } else {
+                        propertyName = null;
+                    }
+                }
+                currentRecord = tree.addRecord(entityName, propertyName, actionName, description);
+                for (const [k, v] of attributes) currentRecord.setAttribute(k, v);
+                currentSectionName = 'main';
+                continue;
+            }
+
+            if (currentRecord === null) continue;
+
+            if (trimmed === '') continue;
+
+            if (isSectionDeclaration(trimmed)) {
+                const parsed = parseSectionLine(trimmed);
+                if (!parsed) continue;
+                const { name, attributes, description } = parsed;
+                let section = currentRecord.getSection(name);
+                if (!section) {
+                    section = currentRecord.addSection(
+                        name,
+                        Object.fromEntries(attributes),
+                        description
+                    );
+                } else {
+                    for (const [k, v] of attributes) section.setAttribute(k, v);
+                    if (description) section.description = description;
+                }
+                currentSectionName = name;
+                continue;
+            }
+
+            // Otherwise it's a field line
+            const field = parseField(trimmed);
+            currentRecord.addField(field, currentSectionName);
+        } catch (e) {
+            let err = e instanceof Error? e: new Error(String(e));
+            // @ts-ignore
+            if (!err.line) {
+                err.message = `${err.message} (at line ${lineNumber})`;
+                // @ts-ignore
+                err.line = lineNumber;
+            }
+            throw err;
+        }
+    }
+
+    return tree;
+}
+
+/**
+ * Parses a tree string with macro preprocessing.
+ * @param {string} treeString
+ * @returns {Tree}
+ */
+function treeFromStringWithMacros(treeString) {
+    const expanded = preprocessMacros(treeString);
+    return treeFromString(expanded);
+}
+
+// @ts-check
+
 
 class Field {
     /** @type {string} */
@@ -1024,465 +1487,16 @@ class Tree {
 
 // @ts-check
 
-/**
- * @typedef {Object} MacroAttr
- * @property {'attr'} type
- * @property {string[]} params
- * @property {string} body
- */
 
 /**
- * @typedef {Object} MacroBlock
- * @property {'block'} type
- * @property {string[]} params
- * @property {string} body
+ * Expands all macros in a DSL string, returning a full DSL string without macro calls.
+ * @param {string} dslString - DSL string containing macro definitions and calls.
+ * @returns {string} DSL string with all macros expanded to their full attribute sets.
+ * @throws {Error} If the DSL string contains syntax errors or unresolved macros.
  */
-
-/**
- * Main class for DSL macro preprocessing.
- * Handles both attribute and block macros with recursion protection.
- */
-class MacroPreprocessor {
-    /**
-     * @param {number} [maxAttrDepth=10] - Maximum recursion depth for attribute macros.
-     */
-    constructor(maxAttrDepth = 10) {
-        /** @type {{[key:string]: (MacroAttr | MacroBlock)}} */
-        this.macros = {};
-        this.maxAttrDepth = maxAttrDepth;
-    }
-
-    /**
-     * Preprocesses the DSL string.
-     * @param {string} dslString - The raw DSL input.
-     * @returns {string} - The expanded DSL output.
-     */
-    preprocess(dslString) {
-        const lines = dslString.split(/\r?\n/);
-        const remainingLines = this._extractMacros(lines);
-        const expandedLines = this._expandMacrosInLines(remainingLines, new Set());
-        return expandedLines.join('\n');
-    }
-
-    /**
-     * Extracts macro definitions and returns only content lines.
-     * @param {string[]} lines
-     * @returns {string[]}
-     * @private
-     */
-    _extractMacros(lines) {
-        const remainingLines = [];
-        let i = 0;
-        const n = lines.length;
-
-        while (i < n) {
-            const line = lines[i];
-            const trimmed = line.trim();
-
-            if (trimmed === '' || trimmed.startsWith('//')) {
-                remainingLines.push(line);
-                i++;
-                continue;
-            }
-
-            if (trimmed.startsWith('#define-attr')) {
-                this._parseAttrDef(trimmed);
-                i++;
-            } else if (trimmed.startsWith('#define-block')) {
-                i = this._parseBlockDef(lines, i);
-            } else {
-                remainingLines.push(line);
-                i++;
-            }
-        }
-        return remainingLines;
-    }
-
-    /**
-     * Expands block macros in lines, recursively.
-     * @param {string[]} lines
-     * @param {Set<string>} callStack
-     * @returns {string[]}
-     * @private
-     */
-    _expandMacrosInLines(lines, callStack) {
-        const result = [];
-
-        for (let line of lines) {
-            const trimmed = line.trim();
-            const leadingSpaces = line.match(/^\s*/)?.[0] ?? '';
-
-            if (trimmed.startsWith('#')) {
-                const callMatch = trimmed.match(/^#([a-zA-Z_]\w*)(?:\(([^)]*)\))?/);
-                if (callMatch) {
-                    const macroName = callMatch[1];
-                    const macro = this.macros[macroName];
-
-                    if (macro && macro.type === 'block') {
-                        if (callStack.has(macroName)) {
-                            throw new Error(
-                                `Circular dependency: ${Array.from(callStack).join(' -> ')} -> ${macroName}`
-                            );
-                        }
-
-                        const argsStr = callMatch[2] || '';
-                        const args = argsStr
-                            ? argsStr
-                                  .split(',')
-                                  .map(a => a.trim())
-                                  .filter(a => a !== '')
-                            : [];
-                        if (args.length !== macro.params.length) {
-                            throw new Error(
-                                `Block macro ${macroName} expects ${macro.params.length} arguments, got ${args.length}`
-                            );
-                        }
-
-                        let body = this._replaceParams(macro.body, macro.params, args);
-                        const nextStack = new Set(callStack).add(macroName);
-                        const expandedBody = this._expandMacrosInLines(body.split('\n'), nextStack);
-
-                        for (let bLine of expandedBody) {
-                            const trimmedBody = bLine.trim();
-                            if (trimmedBody === '') {
-                                result.push('');
-                            } else {
-                                // Remove any original indentation from the macro body,
-                                // then add the invocation's leading spaces.
-                                const originalIndent = bLine.match(/^\s*/)?.[0] ?? '';
-                                const withoutIndent = bLine.slice(originalIndent.length);
-                                result.push(leadingSpaces + withoutIndent);
-                            }
-                        }
-                        continue;
-                    }
-                }
-            }
-            result.push(this._expandLineAttributes(line));
-        }
-        return result;
-    }
-
-    /**
-     * Expands inline attribute macros.
-     * @param {string} line
-     * @param {number} [depth=0]
-     * @returns {string}
-     * @private
-     */
-    _expandLineAttributes(line, depth = 0) {
-        if (depth > this.maxAttrDepth) {
-            throw new Error(`Max attribute macro depth (${this.maxAttrDepth}) exceeded`);
-        }
-
-        const regex = /#([a-zA-Z_]\w*)(?:\(([^)]*)\))?/g;
-        let result = line;
-
-        result = result.replace(regex, (match, name, /** @type {string} */ argsStr) => {
-            const macro = this.macros[name];
-            if (!macro || macro.type !== 'attr') return match;
-
-            const args = argsStr
-                ? argsStr
-                      .split(',')
-                      .map(a => a.trim())
-                      .filter(a => a !== '')
-                : [];
-            if (args.length !== macro.params.length) {
-                throw new Error(
-                    `Attribute macro ${name} expects ${macro.params.length} arguments, got ${args.length}`
-                );
-            }
-
-            let expanded = this._replaceParams(macro.body, macro.params, args);
-            return this._expandLineAttributes(expanded, depth + 1);
-        });
-
-        return result;
-    }
-
-    /**
-     * Replaces placeholders {{param}} with argument values.
-     * @param {string} body
-     * @param {string[]} params
-     * @param {string[]} args
-     * @returns {string}
-     * @private
-     */
-    _replaceParams(body, params, args) {
-        let result = body;
-        for (let i = 0; i < params.length; i++) {
-            const param = params[i];
-            const arg = args[i];
-            result = result.replace(new RegExp(`{{${param}}}`, 'g'), arg);
-        }
-        return result;
-    }
-
-    /**
-     * Parses a #define-attr directive.
-     * @param {string} trimmedLine
-     * @private
-     */
-    _parseAttrDef(trimmedLine) {
-        const match = trimmedLine.match(/^#define-attr\s+([a-zA-Z_]\w*)(?:\(([^)]*)\))?\s+(.*)$/);
-        if (!match) throw new Error('Invalid #define-attr syntax');
-        const [, name, paramsStr, body] = match;
-        if (this.macros[name]) throw new Error(`Macro already defined: ${name}`);
-        const params = paramsStr
-            ? paramsStr
-                  .split(',')
-                  .map(p => p.trim())
-                  .filter(p => p)
-            : [];
-        this.macros[name] = {
-            type: 'attr',
-            params,
-            body: body.trim(),
-        };
-    }
-
-    /**
-     * Parses a #define-block ... #end block.
-     * @param {string[]} lines
-     * @param {number} startIndex
-     * @returns {number} The index after #end.
-     * @private
-     */
-    _parseBlockDef(lines, startIndex) {
-        const header = lines[startIndex].trim();
-        const match = header.match(/^#define-block\s+([a-zA-Z_]\w*)(?:\(([^)]*)\))?/);
-        if (!match) throw new Error('Invalid #define-block syntax');
-        const name = match[1];
-        if (this.macros[name]) throw new Error(`Macro already defined: ${name}`);
-        const params = match[2]
-            ? match[2]
-                  .split(',')
-                  .map(p => p.trim())
-                  .filter(p => p)
-            : [];
-        const bodyLines = [];
-        let i = startIndex + 1;
-        const n = lines.length;
-
-        while (i < n && lines[i].trim() !== '#end') {
-            bodyLines.push(lines[i]);
-            i++;
-        }
-        if (i >= n) throw new Error(`Missing #end for macro block: ${name}`);
-
-        this.macros[name] = {
-            type: 'block',
-            params,
-            body: bodyLines.join('\n'),
-        };
-        return i + 1; // skip the #end line
-    }
+function expandMacros(dslString) {
+    const tree = treeFromStringWithMacros(dslString);
+    return tree.stringify();
 }
 
-/**
- * Compatibility wrapper to match the existing API.
- * @param {string} dslString
- * @returns {string}
- */
-function preprocessMacros(dslString) {
-    const processor = new MacroPreprocessor();
-    return processor.preprocess(dslString);
-}
-
-// @ts-check
-
-
-/**
- * Checks if a line is a record declaration (no leading whitespace and not a section).
- * @param {string} line
- * @returns {boolean}
- */
-function isRecordDeclaration(line) {
-    return !/^\s/.test(line) && !isSectionDeclaration(line);
-}
-
-/**
- * Checks if a line is a section declaration (starts with '@' after optional whitespace).
- * @param {string} line
- * @returns {boolean}
- */
-function isSectionDeclaration(line) {
-    return line.trim().startsWith('@');
-}
-
-/**
- * Parses a section line (e.g., "@returns array=true // comment").
- * @param {string} line
- * @returns {{name: string, attributes: Map<string, string>, description: string|null} | null}
- */
-function parseSectionLine(line) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith('@')) return null;
-    const withoutAt = trimmed.slice(1);
-    const { name, attributes, description } = parseHead(withoutAt);
-    return { name, attributes, description };
-}
-
-/**
- * Parses a field line (including optional/default bracket syntax).
- * @param {string} line
- * @returns {Field}
- * @throws {Error} When field syntax is invalid.
- */
-function parseField(line) {
-    const trimmed = line.trim();
-    if (trimmed === '') throw new Error('Empty field line');
-
-    let fieldName = '';
-    let isOptional = false;
-    let defaultValue = null;
-    let rest = '';
-
-    // Check for optional/default syntax: [name] or [name="value"]
-    if (trimmed.startsWith('[')) {
-        const endBracket = trimmed.indexOf(']');
-        if (endBracket === -1) throw new Error(`Invalid field (missing closing bracket): ${line}`);
-        const bracketContent = trimmed.slice(1, endBracket);
-        const eqPos = bracketContent.indexOf('=');
-        if (eqPos !== -1) {
-            // [name="value"]
-            fieldName = bracketContent.slice(0, eqPos).trim();
-            let valuePart = bracketContent.slice(eqPos + 1).trim();
-            // Remove surrounding quotes if present
-            if (
-                (valuePart.startsWith('"') && valuePart.endsWith('"')) ||
-                (valuePart.startsWith("'") && valuePart.endsWith("'"))
-            ) {
-                valuePart = valuePart.slice(1, -1);
-                try {
-                    defaultValue = JSON.parse('"' + valuePart + '"');
-                } catch (e) {
-                    defaultValue = valuePart;
-                }
-            } else {
-                defaultValue = valuePart;
-            }
-            isOptional = true;
-        } else {
-            // [name]
-            fieldName = bracketContent.trim();
-            isOptional = true;
-            defaultValue = null;
-        }
-        rest = trimmed.slice(endBracket + 1).trim();
-    } else {
-        // Regular field: name? attrs...
-        const nameMatch = trimmed.match(/^[a-zA-Z0-9_\.]+/);
-        if (!nameMatch) throw new Error(`Invalid field name: ${line}`);
-        fieldName = nameMatch[0];
-        let afterName = trimmed.slice(fieldName.length);
-        if (afterName.startsWith('?')) {
-            isOptional = true;
-            afterName = afterName.slice(1);
-        } else {
-            isOptional = false;
-        }
-        rest = afterName.trim();
-    }
-
-    const field = new Field(fieldName, isOptional, defaultValue);
-    if (rest) {
-        const { attributes, description } = parseAttributesAndComment(rest);
-        for (const [k, v] of attributes) field.setAttribute(k, v);
-        if (description) field.description = description;
-    }
-    return field;
-}
-
-/**
- * Parses a tree string into a Tree object.
- * @param {string} treeString - The DSL string.
- * @returns {Tree}
- */
-function treeFromString(treeString) {
-    const tree = new Tree();
-    const lines = treeString.split('\n');
-    let currentRecord = null;
-    let currentSectionName = 'main';
-
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmed = line.trim();
-        const lineNumber = i + 1;
-        if (trimmed === '' || trimmed.startsWith('//')) continue;
-
-        try {
-            if (isRecordDeclaration(line)) {
-                const { name, attributes, description } = parseHead(line);
-                // name is like "entity.property.action" or "entity.property" or "entity"
-                const parts = name.split('.');
-                const entityName = parts[0];
-                let propertyName = null;
-                let actionName = null;
-                if (parts.length > 1) {
-                    actionName = parts[parts.length - 1];
-                    if (parts.length > 2) {
-                        propertyName = parts.slice(1, -1).join('.');
-                    } else {
-                        propertyName = null;
-                    }
-                }
-                currentRecord = tree.addRecord(entityName, propertyName, actionName, description);
-                for (const [k, v] of attributes) currentRecord.setAttribute(k, v);
-                currentSectionName = 'main';
-                continue;
-            }
-
-            if (currentRecord === null) continue;
-
-            if (trimmed === '') continue;
-
-            if (isSectionDeclaration(trimmed)) {
-                const parsed = parseSectionLine(trimmed);
-                if (!parsed) continue;
-                const { name, attributes, description } = parsed;
-                let section = currentRecord.getSection(name);
-                if (!section) {
-                    section = currentRecord.addSection(
-                        name,
-                        Object.fromEntries(attributes),
-                        description
-                    );
-                } else {
-                    for (const [k, v] of attributes) section.setAttribute(k, v);
-                    if (description) section.description = description;
-                }
-                currentSectionName = name;
-                continue;
-            }
-
-            // Otherwise it's a field line
-            const field = parseField(trimmed);
-            currentRecord.addField(field, currentSectionName);
-        } catch (e) {
-            let err = e instanceof Error? e: new Error(String(e));
-            // @ts-ignore
-            if (!err.line) {
-                err.message = `${err.message} (at line ${lineNumber})`;
-                // @ts-ignore
-                err.line = lineNumber;
-            }
-            throw err;
-        }
-    }
-
-    return tree;
-}
-
-/**
- * Parses a tree string with macro preprocessing.
- * @param {string} treeString
- * @returns {Tree}
- */
-function treeFromStringWithMacros(treeString) {
-    const expanded = preprocessMacros(treeString);
-    return treeFromString(expanded);
-}
-
-export { Field, Record, Section, Tree, preprocessMacros, treeFromString, treeFromStringWithMacros };
+export { Field, Record, Section, Tree, expandMacros, preprocessMacros, treeFromString, treeFromStringWithMacros };

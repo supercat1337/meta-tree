@@ -177,7 +177,9 @@ export function treeFromString(treeString) {
             if (!err.line) {
                 err.message = `${err.message} (at line ${lineNumber})`;
                 // @ts-ignore
-                err.line = lineNumber;
+                err.lineNumber = lineNumber;
+                // @ts-ignore
+                err.line = line;
             }
             throw err;
         }

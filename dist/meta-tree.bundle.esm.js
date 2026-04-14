@@ -433,7 +433,8 @@ function treeFromString(treeString) {
       let err = e instanceof Error ? e : new Error(String(e));
       if (!err.line) {
         err.message = `${err.message} (at line ${lineNumber})`;
-        err.line = lineNumber;
+        err.lineNumber = lineNumber;
+        err.line = line;
       }
       throw err;
     }

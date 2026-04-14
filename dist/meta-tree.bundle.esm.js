@@ -116,10 +116,12 @@ function parseAttributesAndComment(str) {
 // src/tools/macro-preprocessor.js
 var MacroPreprocessor = class {
   /**
+   * @param {Object<string, Macro>} [implicitMacros] - Built-in macros available by default.
    * @param {number} [maxAttrDepth=10] - Maximum recursion depth for attribute macros.
    */
-  constructor(maxAttrDepth = 10) {
+  constructor(implicitMacros = {}, maxAttrDepth = 10) {
     this.macros = {};
+    this.implicitMacros = implicitMacros;
     this.maxAttrDepth = maxAttrDepth;
   }
   /**
@@ -132,6 +134,15 @@ var MacroPreprocessor = class {
     const remainingLines = this._extractMacros(lines);
     const expandedLines = this._expandMacrosInLines(remainingLines, /* @__PURE__ */ new Set());
     return expandedLines.join("\n");
+  }
+  /**
+   * Retrieves a macro by name, first from user-defined, then from implicit.
+   * @param {string} name
+   * @returns {Macro | undefined}
+   * @private
+   */
+  _getMacro(name) {
+    return this.macros[name] ?? this.implicitMacros[name];
   }
   /**
    * Extracts macro definitions and returns only content lines.
@@ -154,12 +165,14 @@ var MacroPreprocessor = class {
       if (trimmed.startsWith("#define-attr")) {
         this._parseAttrDef(trimmed);
         i++;
-      } else if (trimmed.startsWith("#define-block")) {
-        i = this._parseBlockDef(lines, i);
-      } else {
-        remainingLines.push(line);
-        i++;
+        continue;
       }
+      if (trimmed.startsWith("#define-block")) {
+        i = this._parseBlockDef(lines, i);
+        continue;
+      }
+      remainingLines.push(line);
+      i++;
     }
     return remainingLines;
   }
@@ -179,7 +192,7 @@ var MacroPreprocessor = class {
         const callMatch = trimmed.match(/^#([a-zA-Z_]\w*)(?:\(([^)]*)\))?/);
         if (callMatch) {
           const macroName = callMatch[1];
-          const macro = this.macros[macroName];
+          const macro = this._getMacro(macroName);
           if (macro && macro.type === "block") {
             if (callStack.has(macroName)) {
               throw new Error(
@@ -228,7 +241,7 @@ var MacroPreprocessor = class {
     const regex = /#([a-zA-Z_]\w*)(?:\(([^)]*)\))?/g;
     let result = line;
     result = result.replace(regex, (match, name, argsStr) => {
-      const macro = this.macros[name];
+      const macro = this._getMacro(name);
       if (!macro || macro.type !== "attr") return match;
       const args = argsStr ? argsStr.split(",").map((a) => a.trim()).filter((a) => a !== "") : [];
       if (args.length !== macro.params.length) {
@@ -305,8 +318,8 @@ var MacroPreprocessor = class {
     return i + 1;
   }
 };
-function preprocessMacros(dslString) {
-  const processor = new MacroPreprocessor();
+function preprocessMacros(dslString, implicitMacros = {}) {
+  const processor = new MacroPreprocessor(implicitMacros);
   return processor.preprocess(dslString);
 }
 
@@ -432,7 +445,11 @@ function treeFromString(treeString) {
     } catch (e) {
       let err = e instanceof Error ? e : new Error(String(e));
       if (!err.line) {
-        err.message = `${err.message} (at line ${lineNumber})`;
+        let recordName = currentRecord?.getFullName() || "";
+        let sectionName = recordName ? currentSectionName : "";
+        let postfix = recordName ? ` ((${recordName}@${sectionName})` : "";
+        let message = `${err.message} (at line ${lineNumber})${postfix}`;
+        err.message = message;
         err.lineNumber = lineNumber;
         err.line = line;
       }
@@ -441,8 +458,8 @@ function treeFromString(treeString) {
   }
   return tree;
 }
-function treeFromStringWithMacros(treeString) {
-  const expanded = preprocessMacros(treeString);
+function treeFromStringWithMacros(treeString, implicitMacros = {}) {
+  const expanded = preprocessMacros(treeString, implicitMacros);
   return treeFromString(expanded);
 }
 

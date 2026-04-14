@@ -172,10 +172,16 @@ export function treeFromString(treeString) {
             const field = parseField(trimmed);
             currentRecord.addField(field, currentSectionName);
         } catch (e) {
-            let err = e instanceof Error? e: new Error(String(e));
+            let err = e instanceof Error ? e : new Error(String(e));
             // @ts-ignore
             if (!err.line) {
-                err.message = `${err.message} (at line ${lineNumber})`;
+                let recordName = currentRecord?.getFullName() || '';
+                let sectionName = recordName ? currentSectionName : '';
+
+                let postfix = recordName ? ` ((${recordName}@${sectionName})` : '';
+                let message = `${err.message} (at line ${lineNumber})${postfix}`;
+
+                err.message = message;
                 // @ts-ignore
                 err.lineNumber = lineNumber;
                 // @ts-ignore
@@ -191,9 +197,10 @@ export function treeFromString(treeString) {
 /**
  * Parses a tree string with macro preprocessing.
  * @param {string} treeString
+ * @param {Object<string, import('./macro-preprocessor.js').Macro>} [implicitMacros]
  * @returns {Tree}
  */
-export function treeFromStringWithMacros(treeString) {
-    const expanded = preprocessMacros(treeString);
+export function treeFromStringWithMacros(treeString, implicitMacros = {}) {
+    const expanded = preprocessMacros(treeString, implicitMacros);
     return treeFromString(expanded);
 }

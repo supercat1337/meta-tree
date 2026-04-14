@@ -22,6 +22,7 @@ export type MacroBlock = {
     params: string[];
     body: string;
 };
+export type Macro = MacroAttr | MacroBlock;
 export class Field {
     /**
      * Creates a new Field.
@@ -462,11 +463,14 @@ export class Tree {
  */
 export function expandMacros(dslString: string): string;
 /**
- * Compatibility wrapper to match the existing API.
+ * Compatibility wrapper with optional implicit macros.
  * @param {string} dslString
+ * @param {Object<string, Macro>} [implicitMacros]
  * @returns {string}
  */
-export function preprocessMacros(dslString: string): string;
+export function preprocessMacros(dslString: string, implicitMacros?: {
+    [x: string]: Macro;
+}): string;
 /**
  * Parses a tree string into a Tree object.
  * @param {string} treeString - The DSL string.
@@ -476,6 +480,9 @@ export function treeFromString(treeString: string): Tree;
 /**
  * Parses a tree string with macro preprocessing.
  * @param {string} treeString
+ * @param {Object<string, import('./macro-preprocessor.js').Macro>} [implicitMacros]
  * @returns {Tree}
  */
-export function treeFromStringWithMacros(treeString: string): Tree;
+export function treeFromStringWithMacros(treeString: string, implicitMacros?: {
+    [x: string]: any;
+}): Tree;

@@ -197,17 +197,23 @@ function parseAttributesAndComment(str) {
  * @property {string} body
  */
 
+/** @typedef {MacroAttr | MacroBlock} Macro */
+
 /**
  * Main class for DSL macro preprocessing.
  * Handles both attribute and block macros with recursion protection.
+ * Supports implicit (built-in) macros that are available without definition.
  */
 class MacroPreprocessor {
     /**
+     * @param {Object<string, Macro>} [implicitMacros] - Built-in macros available by default.
      * @param {number} [maxAttrDepth=10] - Maximum recursion depth for attribute macros.
      */
-    constructor(maxAttrDepth = 10) {
-        /** @type {{[key:string]: (MacroAttr | MacroBlock)}} */
+    constructor(implicitMacros = {}, maxAttrDepth = 10) {
+        /** @type {Record<string, Macro>} */
         this.macros = {};
+        /** @type {Record<string, Macro>} */
+        this.implicitMacros = implicitMacros;
         this.maxAttrDepth = maxAttrDepth;
     }
 
@@ -221,6 +227,16 @@ class MacroPreprocessor {
         const remainingLines = this._extractMacros(lines);
         const expandedLines = this._expandMacrosInLines(remainingLines, new Set());
         return expandedLines.join('\n');
+    }
+
+    /**
+     * Retrieves a macro by name, first from user-defined, then from implicit.
+     * @param {string} name
+     * @returns {Macro | undefined}
+     * @private
+     */
+    _getMacro(name) {
+        return this.macros[name] ?? this.implicitMacros[name];
     }
 
     /**
@@ -247,12 +263,16 @@ class MacroPreprocessor {
             if (trimmed.startsWith('#define-attr')) {
                 this._parseAttrDef(trimmed);
                 i++;
-            } else if (trimmed.startsWith('#define-block')) {
-                i = this._parseBlockDef(lines, i);
-            } else {
-                remainingLines.push(line);
-                i++;
+                continue;
             }
+
+            if (trimmed.startsWith('#define-block')) {
+                i = this._parseBlockDef(lines, i);
+                continue;
+            }
+
+            remainingLines.push(line);
+            i++;
         }
         return remainingLines;
     }
@@ -275,7 +295,7 @@ class MacroPreprocessor {
                 const callMatch = trimmed.match(/^#([a-zA-Z_]\w*)(?:\(([^)]*)\))?/);
                 if (callMatch) {
                     const macroName = callMatch[1];
-                    const macro = this.macros[macroName];
+                    const macro = this._getMacro(macroName);
 
                     if (macro && macro.type === 'block') {
                         if (callStack.has(macroName)) {
@@ -306,8 +326,6 @@ class MacroPreprocessor {
                             if (trimmedBody === '') {
                                 result.push('');
                             } else {
-                                // Remove any original indentation from the macro body,
-                                // then add the invocation's leading spaces.
                                 const originalIndent = bLine.match(/^\s*/)?.[0] ?? '';
                                 const withoutIndent = bLine.slice(originalIndent.length);
                                 result.push(leadingSpaces + withoutIndent);
@@ -317,6 +335,7 @@ class MacroPreprocessor {
                     }
                 }
             }
+            // Not a block macro invocation (or unknown macro)
             result.push(this._expandLineAttributes(line));
         }
         return result;
@@ -337,15 +356,15 @@ class MacroPreprocessor {
         const regex = /#([a-zA-Z_]\w*)(?:\(([^)]*)\))?/g;
         let result = line;
 
-        result = result.replace(regex, (match, name, /** @type {string} */ argsStr) => {
-            const macro = this.macros[name];
+        result = result.replace(regex, (match, name, argsStr) => {
+            const macro = this._getMacro(name);
             if (!macro || macro.type !== 'attr') return match;
 
             const args = argsStr
                 ? argsStr
                       .split(',')
-                      .map(a => a.trim())
-                      .filter(a => a !== '')
+                      .map((/** @type {string} */ a) => a.trim())
+                      .filter((/** @type {string} */ a) => a !== '')
                 : [];
             if (args.length !== macro.params.length) {
                 throw new Error(
@@ -440,12 +459,13 @@ class MacroPreprocessor {
 }
 
 /**
- * Compatibility wrapper to match the existing API.
+ * Compatibility wrapper with optional implicit macros.
  * @param {string} dslString
+ * @param {Object<string, Macro>} [implicitMacros]
  * @returns {string}
  */
-function preprocessMacros(dslString) {
-    const processor = new MacroPreprocessor();
+function preprocessMacros(dslString, implicitMacros = {}) {
+    const processor = new MacroPreprocessor(implicitMacros);
     return processor.preprocess(dslString);
 }
 
@@ -620,10 +640,16 @@ function treeFromString(treeString) {
             const field = parseField(trimmed);
             currentRecord.addField(field, currentSectionName);
         } catch (e) {
-            let err = e instanceof Error? e: new Error(String(e));
+            let err = e instanceof Error ? e : new Error(String(e));
             // @ts-ignore
             if (!err.line) {
-                err.message = `${err.message} (at line ${lineNumber})`;
+                let recordName = currentRecord?.getFullName() || '';
+                let sectionName = recordName ? currentSectionName : '';
+
+                let postfix = recordName ? ` ((${recordName}@${sectionName})` : '';
+                let message = `${err.message} (at line ${lineNumber})${postfix}`;
+
+                err.message = message;
                 // @ts-ignore
                 err.lineNumber = lineNumber;
                 // @ts-ignore
@@ -639,10 +665,11 @@ function treeFromString(treeString) {
 /**
  * Parses a tree string with macro preprocessing.
  * @param {string} treeString
+ * @param {Object<string, import('./macro-preprocessor.js').Macro>} [implicitMacros]
  * @returns {Tree}
  */
-function treeFromStringWithMacros(treeString) {
-    const expanded = preprocessMacros(treeString);
+function treeFromStringWithMacros(treeString, implicitMacros = {}) {
+    const expanded = preprocessMacros(treeString, implicitMacros);
     return treeFromString(expanded);
 }
 

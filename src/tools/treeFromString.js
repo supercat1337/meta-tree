@@ -1,6 +1,6 @@
 // @ts-check
 
-import { Field, Tree } from '../index.js';
+import { Field, Record, Tree } from '../index.js';
 import { parseHead, parseAttributesAndComment } from './head-parser.js';
 import { preprocessMacros } from './macro-preprocessor.js';
 
@@ -114,6 +114,7 @@ function parseField(line) {
 export function treeFromString(treeString) {
     const tree = new Tree();
     const lines = treeString.split('\n');
+    /** @type {null|Record} */
     let currentRecord = null;
     let currentSectionName = 'main';
 
@@ -141,6 +142,17 @@ export function treeFromString(treeString) {
                 }
                 currentRecord = tree.addRecord(entityName, propertyName, actionName, description);
                 for (const [k, v] of attributes) currentRecord.setAttribute(k, v);
+
+                const explicitVerb = currentRecord.getAttribute('verb');
+                if (explicitVerb !== null) {
+                    const allowed = ['get', 'set', 'add', 'delete', 'list', 'check', 'other'];
+                    if (!allowed.includes(explicitVerb)) {
+                        throw new Error(`Invalid verb value: "${explicitVerb}" at line ...`);
+                    }
+                    // @ts-ignore
+                    currentRecord.verb = explicitVerb;
+                }
+
                 currentSectionName = 'main';
                 continue;
             }
@@ -197,7 +209,7 @@ export function treeFromString(treeString) {
 /**
  * Parses a tree string with macro preprocessing.
  * @param {string} treeString
- * @param {Object<string, import('./macro-preprocessor.js').Macro>} [implicitMacros]
+ * @param {Object<string, Macro>} [implicitMacros]
  * @returns {Tree}
  */
 export function treeFromStringWithMacros(treeString, implicitMacros = {}) {

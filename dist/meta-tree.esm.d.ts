@@ -1,3 +1,17 @@
+export interface MacroAttr {
+    type: 'attr';
+    params: string[];
+    body: string;
+}
+
+export interface MacroBlock {
+    type: 'block';
+    params: string[];
+    body: string;
+}
+
+export type Macro = MacroAttr | MacroBlock;
+
 export type ParsedHead = {
     /**
      * - The extracted name (record full name, section name, etc.)
@@ -12,17 +26,172 @@ export type ParsedHead = {
      */
     description: string | null;
 };
-export type MacroAttr = {
-    type: "attr";
-    params: string[];
-    body: string;
+
+declare global {
+    interface MacroAttr extends _MacroAttr {}
+    interface MacroBlock extends _MacroBlock {}
+    type Macro = _Macro;
+    interface ParsedHead extends _ParsedHead {}
+}
+
+type _MacroAttr = MacroAttr;
+type _MacroBlock = MacroBlock;
+type _Macro = Macro;
+type _ParsedHead = ParsedHead;
+
+/* From tools\head-parser.d.ts */
+/**
+ * Parses a string that may contain a name, attributes, and a trailing comment.
+ * Format: `[name] [attr1=value1 attr2] ... [// comment]`
+ * @param {string} str - The input string.
+ * @returns {ParsedHead}
+ */
+export function parseHead(str: string): ParsedHead;
+/**
+ * Converts a name, attributes map, and description into a string representation.
+ * Attributes are output as `key="value"` (value JSON-escaped) or `key` if value is empty.
+ * Description is escaped with `escapeComment` and prefixed with `//`.
+ * @param {string} name - The name (record full name, section name, or empty for fields).
+ * @param {Map<string, string>} attributes - Map of attributes.
+ * @param {string|null} description - Optional description.
+ * @returns {string} The formatted string.
+ */
+export function stringifyHead(name: string, attributes: Map<string, string>, description: string | null): string;
+/**
+ * Parses a string containing only attributes and an optional comment.
+ * Used for field attribute strings where there is no leading name.
+ * @param {string} str
+ * @returns {{ attributes: Map<string, string>, description: string|null }}
+ */
+/**
+ * Parses a string containing only attributes and an optional comment.
+ * @param {string} str
+ * @returns {{ attributes: Map<string, string>, description: string|null }}
+ */
+export function parseAttributesAndComment(str: string): {
+    attributes: Map<string, string>;
+    description: string | null;
 };
-export type MacroBlock = {
-    type: "block";
-    params: string[];
-    body: string;
-};
-export type Macro = MacroAttr | MacroBlock;
+
+/* From tools\macro-preprocessor.d.ts */
+/**
+ * Compatibility wrapper with optional implicit macros.
+ * @param {string} dslString
+ * @param {Object<string, Macro>} [implicitMacros]
+ * @returns {string}
+ */
+export function preprocessMacros(dslString: string, implicitMacros?: {
+    [x: string]: Macro;
+}): string;
+/**
+ * Main class for DSL macro preprocessing.
+ * Handles both attribute and block macros with recursion protection.
+ * Supports implicit (built-in) macros that are available without definition.
+ */
+export class MacroPreprocessor {
+    /**
+     * @param {Object<string, Macro>} [implicitMacros] - Built-in macros available by default.
+     * @param {number} [maxAttrDepth=10] - Maximum recursion depth for attribute macros.
+     */
+    constructor(implicitMacros?: {
+        [x: string]: Macro;
+    }, maxAttrDepth?: number);
+    /** @type {Object<string, Macro>} */
+    macros: {
+        [x: string]: Macro;
+    };
+    /** @type {Object<string, Macro>} */
+    implicitMacros: {
+        [x: string]: Macro;
+    };
+    maxAttrDepth: number;
+    /**
+     * Preprocesses the DSL string.
+     * @param {string} dslString - The raw DSL input.
+     * @returns {string} - The expanded DSL output.
+     */
+    preprocess(dslString: string): string;
+    /**
+     * Retrieves a macro by name, first from user-defined, then from implicit.
+     * @param {string} name
+     * @returns {Macro | undefined}
+     * @private
+     */
+    private _getMacro;
+    /**
+     * Extracts macro definitions and returns only content lines.
+     * @param {string[]} lines
+     * @returns {string[]}
+     * @private
+     */
+    private _extractMacros;
+    /**
+     * Expands block macros in lines, recursively.
+     * @param {string[]} lines
+     * @param {Set<string>} callStack
+     * @returns {string[]}
+     * @private
+     */
+    private _expandMacrosInLines;
+    /**
+     * Expands inline attribute macros.
+     * @param {string} line
+     * @param {number} [depth=0]
+     * @returns {string}
+     * @private
+     */
+    private _expandLineAttributes;
+    /**
+     * Replaces placeholders {{param}} with argument values.
+     * @param {string} body
+     * @param {string[]} params
+     * @param {string[]} args
+     * @returns {string}
+     * @private
+     */
+    private _replaceParams;
+    /**
+     * Parses a #define-attr directive.
+     * @param {string} trimmedLine
+     * @private
+     */
+    private _parseAttrDef;
+    /**
+     * Parses a #define-block ... #end block.
+     * @param {string[]} lines
+     * @param {number} startIndex
+     * @returns {number} The index after #end.
+     * @private
+     */
+    private _parseBlockDef;
+}
+
+/* From tools\tools.d.ts */
+/**
+ * Attempts to determine the verb of an action from its name.
+ * @param {string|null} actionName - The name of the action.
+ * @returns {"get"|"set"|"add"|"delete"|"list"|"check"|"other"|null} The verb of the action, or null if it could not be determined.
+ */
+export function getVerbFromActionName(actionName: string | null): "get" | "set" | "add" | "delete" | "list" | "check" | "other" | null;
+
+/* From tools\treeFromString.d.ts */
+/**
+ * Parses a tree string into a Tree object.
+ * @param {string} treeString - The DSL string.
+ * @returns {Tree}
+ */
+export function treeFromString(treeString: string): Tree;
+/**
+ * Parses a tree string with macro preprocessing.
+ * @param {string} treeString
+ * @param {Object<string, Macro>} [implicitMacros]
+ * @returns {Tree}
+ */
+export function treeFromStringWithMacros(treeString: string, implicitMacros?: {
+    [x: string]: Macro;
+}): Tree;
+
+/* From tree\field.d.ts */
 export class Field {
     /**
      * Creates a new Field.
@@ -105,6 +274,8 @@ export class Field {
      */
     getName(): string;
 }
+
+/* From tree\record.d.ts */
 export class Record {
     /**
      * Creates a new Record.
@@ -124,8 +295,8 @@ export class Record {
     propertyName: string | null;
     /** @type {string|null} */
     actionName: string | null;
-    /** @type {"get"|"set"|"add"|"delete"|"list"|"check"|null} */
-    verb: "get" | "set" | "add" | "delete" | "list" | "check" | null;
+    /** @type {"get"|"set"|"add"|"delete"|"list"|"check"|"other"|null} */
+    verb: "get" | "set" | "add" | "delete" | "list" | "check" | "other" | null;
     /** @type {Map<string, Section>} */
     sections: Map<string, Section>;
     /** @type {Section} */
@@ -279,6 +450,8 @@ export class Record {
      */
     clone(): Record;
 }
+
+/* From tree\section.d.ts */
 export class Section {
     /**
      * Creates a new Section.
@@ -397,6 +570,8 @@ export class Section {
      */
     getName(): string;
 }
+
+/* From tree\tree.d.ts */
 export class Tree {
     /** @type {Map<string, Record>} */
     records: Map<string, Record>;
@@ -455,34 +630,3 @@ export class Tree {
         records: Array<ReturnType<Record["toJSON"]>>;
     };
 }
-/**
- * Expands all macros in a DSL string, returning a full DSL string without macro calls.
- * @param {string} dslString - DSL string containing macro definitions and calls.
- * @returns {string} DSL string with all macros expanded to their full attribute sets.
- * @throws {Error} If the DSL string contains syntax errors or unresolved macros.
- */
-export function expandMacros(dslString: string): string;
-/**
- * Compatibility wrapper with optional implicit macros.
- * @param {string} dslString
- * @param {Object<string, Macro>} [implicitMacros]
- * @returns {string}
- */
-export function preprocessMacros(dslString: string, implicitMacros?: {
-    [x: string]: Macro;
-}): string;
-/**
- * Parses a tree string into a Tree object.
- * @param {string} treeString - The DSL string.
- * @returns {Tree}
- */
-export function treeFromString(treeString: string): Tree;
-/**
- * Parses a tree string with macro preprocessing.
- * @param {string} treeString
- * @param {Object<string, import('./macro-preprocessor.js').Macro>} [implicitMacros]
- * @returns {Tree}
- */
-export function treeFromStringWithMacros(treeString: string, implicitMacros?: {
-    [x: string]: any;
-}): Tree;

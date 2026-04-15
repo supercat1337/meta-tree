@@ -5,13 +5,14 @@
     "license": "MIT",
     "author": "Albert Bazaleev",
     "type": "module",
-    "main": "index.js",
+    "main": "dist/meta-tree.esm.js",
     "types": "dist/meta-tree.esm.d.ts",
     "exports": {
         ".": {
-            "import": "./dist/meta-tree.esm.js",
-            "default": "./index.js"
-        }
+            "types": "./dist/meta-tree.esm.d.ts",
+            "import": "./dist/meta-tree.esm.js"
+        },
+        "./package.json": "./package.json"
     },
     "engines": {
         "node": ">=14"
@@ -34,19 +35,20 @@
         "url": "https://github.com/supercat1337/meta-tree"
     },
     "scripts": {
-        "build": "npm run remove_type_files && npm run build_esm && npm run build_bundle_esm && npm run build_bundle_esm_min && npm run create_types",
-        "build_bundle_esm_min": "esbuild --minify --bundle --platform=neutral --legal-comments=none ./src/index.js --outfile=./dist/meta-tree.bundle.esm.min.js",
-        "build_bundle_esm": "esbuild --bundle --platform=neutral --legal-comments=none ./src/index.js --outfile=./dist/meta-tree.bundle.esm.js",
+        "clean": "shx rm -rf ./dist && shx mkdir ./dist",
         "build_esm": "rollup ./src/index.js --file ./dist/meta-tree.esm.js --format es",
-        "create_types": "npx -p typescript tsc --project my.tsconfig.types.json",
-        "remove_type_files": "shx rm -f \"*.d.ts\" \"*.d.ts.map\" \"dist/*.d.ts\" \"dist/*.d.ts.map\"",
+        "gen_types": "npx tsc --project my.tsconfig.types.json",
+        "bundle_types": "node scripts/bundle-types.js",
+        "build": "npm run clean && npm run build_esm && npm run gen_types && npm run bundle_types && shx rm -rf dist/types-temp",
         "test": "c8 ava",
         "test:watch": "ava --watch",
         "coverage": "c8 report --reporter=html"
     },
     "devDependencies": {
+        "@rollup/plugin-alias": "^6.0.0",
         "ava": "^7.0.0",
         "c8": "^11.0.0",
+        "rollup": "^4.60.1",
         "shx": "^0.4.0"
     },
     "ava": {

@@ -1,22 +1,6 @@
 // @ts-check
 
 /**
- * @typedef {Object} MacroAttr
- * @property {'attr'} type
- * @property {string[]} params
- * @property {string} body
- */
-
-/**
- * @typedef {Object} MacroBlock
- * @property {'block'} type
- * @property {string[]} params
- * @property {string} body
- */
-
-/** @typedef {MacroAttr | MacroBlock} Macro */
-
-/**
  * Main class for DSL macro preprocessing.
  * Handles both attribute and block macros with recursion protection.
  * Supports implicit (built-in) macros that are available without definition.
@@ -27,9 +11,9 @@ export class MacroPreprocessor {
      * @param {number} [maxAttrDepth=10] - Maximum recursion depth for attribute macros.
      */
     constructor(implicitMacros = {}, maxAttrDepth = 10) {
-        /** @type {Record<string, Macro>} */
+        /** @type {Object<string, Macro>} */
         this.macros = {};
-        /** @type {Record<string, Macro>} */
+        /** @type {Object<string, Macro>} */
         this.implicitMacros = implicitMacros;
         this.maxAttrDepth = maxAttrDepth;
     }

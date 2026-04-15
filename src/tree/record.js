@@ -12,7 +12,7 @@ export class Record {
     propertyName;
     /** @type {string|null} */
     actionName;
-    /** @type {"get"|"set"|"add"|"delete"|"list"|"check"|null} */
+    /** @type {"get"|"set"|"add"|"delete"|"list"|"check"|"other"|null} */
     verb;
     /** @type {Map<string, Section>} */
     sections;

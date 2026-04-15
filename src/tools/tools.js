@@ -3,7 +3,7 @@
 /**
  * Attempts to determine the verb of an action from its name.
  * @param {string|null} actionName - The name of the action.
- * @returns {"get"|"set"|"add"|"delete"|"list"|"check"|null} The verb of the action, or null if it could not be determined.
+ * @returns {"get"|"set"|"add"|"delete"|"list"|"check"|"other"|null} The verb of the action, or null if it could not be determined.
  */
 export function getVerbFromActionName(actionName) {
     if (!actionName) return null;
@@ -60,5 +60,5 @@ export function getVerbFromActionName(actionName) {
     )
         return 'check';
 
-    return 'check'; // fallback
+    return 'other'; // fallback
 }

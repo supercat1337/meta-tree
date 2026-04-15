@@ -9,8 +9,8 @@ This document provides structured guidelines for writing and understanding Meta-
 - `@` is **only allowed** at the beginning of a line to denote a **section** (e.g., `@returns`, `@request`).
 - **Never** use `@` inside attribute names, record headers, field names, or macro invocations.
 
-❌ **Incorrect:** `ListOrders @method="GET"`  
-✅ **Correct:** `ListOrders method="GET"`
+❌ **Incorrect:** `listOrders @method="GET"`  
+✅ **Correct:** `listOrders method="GET"`
 
 ### 0.2. Macro Invocation
 
@@ -21,10 +21,11 @@ This document provides structured guidelines for writing and understanding Meta-
 
 - Entity, property, action, field, section, macro, and attribute names must match regex: `[a-zA-Z0-9_.-]+`
 - **Forbidden**: spaces, `@`, `#`, `[`, `]`, `=`, `/`, `\` (dot and hyphen are allowed).
+- **Recommendation:** Use lowerCamelCase for names (e.g., `userProfile`, `getUser`). The parser does not enforce case, but consistency helps readability.
 
 ### 0.4. Record Uniqueness
 
-- The full name of a record (`entity[.property][.verb]`) must be unique within a single Tree.
+- The full name of a record (`entity[.property][.action]`) must be unique within a single Tree.
 - Duplicate names cause a parse error (thrown by `treeFromString` or `treeFromStringWithMacros`).
 - This ensures each API method or entity can be unambiguously referenced.
 
@@ -61,7 +62,7 @@ Tree (root)
 
 A Meta-Tree DSL file consists of **records**. Each record has:
 
-- A header line: `entity[.property][.verb] [attributes] // comment`
+- A header line: `entity[.property][.action] [attributes] // comment`
 - Indented fields (parameters) under the header (automatically belong to the `main` section).
 - Optional named sections (e.g., `@returns`) with their own fields.
 
@@ -108,11 +109,15 @@ user.profile.update
 
 ## 4. Record Header
 
-Format: `entity[.property][.verb] [attributes] [// comment]`
+Format: `entity[.property][.action] [attributes] [// comment]`
 
 - `entity` – required, e.g., `user`, `product`.
 - `property` – optional, e.g., `profile`, `price`.
-- `verb` – optional, but recommended for actions: `get`, `set`, `add`, `delete`, `list`, `check`.
+- `action` – optional, e.g., `create`, `update`.  
+  **Important:** The last segment of the name is always treated as the `action`. For example:
+    - `user` → entity `user`, no action.
+    - `user.profile` → entity `user`, action `profile`.
+    - `user.profile.update` → entity `user`, property `profile`, action `update`.
 - Attributes – key-value pairs (see Section 6).
 - Comment – describes the record purpose.
 
@@ -121,6 +126,38 @@ Format: `entity[.property][.verb] [attributes] [// comment]`
 - `user.create`
 - `product.price.update`
 - `health.check // Ping service`
+
+### 4.1. Verb Classification
+
+The `verb` of a record is automatically derived from the action name:
+
+- **Known CRUD-like prefixes:** `get`, `set`, `add`, `delete`, `list`, `check` → corresponding verb.
+- **Any other action name** (e.g., `download`, `poll`, `subscribe`, `profile`) → `'other'`.
+- **No action name** (single‑segment record like `user`) → `null`.
+
+You can **override** the `verb` by adding a `verb` attribute in the record header. The attribute value must be one of: `get`, `set`, `add`, `delete`, `list`, `check`, `other`. Example:
+
+```
+user.profile verb="get"   // forces verb='get' (action name is 'profile')
+```
+
+For operations where `verb` is `'other'` (or even for CRUD verbs), you can provide additional semantics using the **`kind`** attribute. The `kind` attribute is optional and free‑form. It helps code generators understand the nature of the operation (e.g., file download, realtime subscription).
+
+**Example with `kind`:**
+
+```
+document.download kind="file"
+    file_id    type="string"
+
+events.longPoll kind="realtime" timeout="60"
+    [cursor] type="string"
+```
+
+**Single‑segment record with explicit verb (non‑standard but allowed):**
+
+```
+user verb="get"   // forces verb='get', actionName remains null
+```
 
 ## 5. Fields
 
@@ -174,15 +211,16 @@ Attributes are key-value pairs placed after the field name (or record/section he
 
 ### 6.2. Common Attributes (suggested for code generators)
 
-| Attribute                  | Purpose                        | Example                           |
-| -------------------------- | ------------------------------ | --------------------------------- |
-| `type`                     | Data type                      | `type="integer"`, `type="string"` |
-| `min`, `max`               | Numeric bounds                 | `min="0" max="100"`               |
-| `length_min`, `length_max` | String length limits           | `length_min="1" length_max="64"`  |
-| `format`                   | Additional format hint         | `format="email"`, `format="uuid"` |
-| `array`                    | Marks field as array           | `array="true"`                    |
-| `ref`                      | Reference to a type definition | `ref="User"`                      |
-| `is_id`, `is_primary`      | Special flags for identifiers  | `is_id is_primary`                |
+| Attribute                  | Purpose                                    | Example                           |
+| -------------------------- | ------------------------------------------ | --------------------------------- |
+| `type`                     | Data type                                  | `type="integer"`, `type="string"` |
+| `kind`                     | **Semantic classification for operations** | `kind="file"`, `kind="realtime"`  |
+| `min`, `max`               | Numeric bounds                             | `min="0" max="100"`               |
+| `length_min`, `length_max` | String length limits                       | `length_min="1" length_max="64"`  |
+| `format`                   | Additional format hint                     | `format="email"`, `format="uuid"` |
+| `array`                    | Marks field as array                       | `array="true"`                    |
+| `ref`                      | Reference to a type definition             | `ref="User"`                      |
+| `is_id`, `is_primary`      | Special flags for identifiers              | `is_id is_primary`                |
 
 ### 6.3. Escaping
 
@@ -299,7 +337,7 @@ links.get
 
 - `tree.stringify()` – serializes a Tree object to DSL **without** macro definitions (all macros are expanded).
 - `treeFromString(dsl)` – parses a DSL string that **does not contain** macro definitions.
-- `treeFromStringWithMacros(dsl)` – preprocesses macros, then parses the DSL string (supports macro definitions and calls).
+- `treeFromStringWithMacros(dsl)` – preprocesses macros, then parses the DSL string. **The `verb` of each record is computed after macro expansion.**
 - `preprocessMacros(dsl)` – performs standalone macro expansion on a DSL string, returning a new string with macros replaced (but without syntax validation).
 - `expandMacros(dsl)` – parses a DSL string with macros using `treeFromStringWithMacros`, then serializes the resulting tree with `tree.stringify()`. Returns a fully expanded DSL string **without any macro definitions or calls**. Useful for generating canonical DSL or for tools that do not support macros.
 
@@ -320,7 +358,7 @@ links.get
     timestamp     type="datetime"
 #end
 
-ListOrders method="GET" // Method to list orders
+listOrders method="GET" // Method to list orders
     #BaseMeta
     #Pagination()
     filter        type="string"
@@ -348,6 +386,12 @@ When writing a code generator from Meta-Tree DSL, follow these conventions:
 - **Type references** – use `ref="TypeName"`; resolve from external schemas (JSON/JSON5) in the generator.
 - **Nested objects** – use dot notation, e.g., `address.city`. The generator can flatten or rebuild objects.
 - **Error handling** – treat missing required fields as validation errors; provide clear messages.
+- **When `record.verb === 'other'`**, read `record.getAttribute('kind')` to understand the intended behaviour. For instance:
+    - `kind="file"` → generate a file download endpoint (`produces: application/octet-stream`, support range requests).
+    - `kind="realtime"` → generate WebSocket or Server‑Sent Events (SSE) stub.
+    - `kind="execute"` → treat as a generic POST with arbitrary payload.
+    - If `kind` is missing, fall back to `actionName` heuristics.
+- For records with `verb === null` (single‑segment names) you may still generate an entity schema, and optionally provide CRUD operations as separate records.
 
 ## 11. Summary of Symbols
 
@@ -367,5 +411,6 @@ When writing a code generator from Meta-Tree DSL, follow these conventions:
 - Keep lines under 120 characters.
 - Use comments to document non‑obvious attributes.
 - Prefer explicit types (`type="integer"`) over implicit ones.
+- Use lowerCamelCase for entity, property, and action names (e.g., `userProfile`, `orderLine`).
 
 By following this guide, both humans and AI can reliably create and interpret Meta-Tree DSL files for API specifications, data schemas, or any hierarchical structure.

@@ -1,13 +1,6 @@
 // @ts-check
 
 /**
- * @typedef {Object} ParsedHead
- * @property {string} name - The extracted name (record full name, section name, etc.)
- * @property {Map<string, string>} attributes - Map of attribute names to values (empty string for valueless)
- * @property {string|null} description - The comment after "//", or null
- */
-
-/**
  * Escapes a string for safe inclusion after "//".
  * Only backslashes, newlines, carriage returns are escaped.
  * @param {string} str - The raw description.

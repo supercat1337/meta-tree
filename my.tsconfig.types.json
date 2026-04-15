@@ -1,19 +1,14 @@
 {
     "compilerOptions": {
         "allowJs": true,
-        "target": "ESNext",
-        "module": "NodeNext",
         "emitDeclarationOnly": true,
-        "declaration": true, 
-        "outDir": "./",
+        "declaration": true,
+        "outDir": "./dist/types-temp",
         "rootDir": ".",
-        "declarationMap": false,
-        "lib": ["ESNext", "DOM", "ES2023"],
         "moduleResolution": "NodeNext",
-        "stripInternal": false
+        "module": "NodeNext",
+        "skipLibCheck": true,
+        "types": []
     },
-    "include": [
-        "./index.js"
-    ],
-    "exclude": []
+    "include": ["./index.d.ts", "src/**/*.js"]
 }

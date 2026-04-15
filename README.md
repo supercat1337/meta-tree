@@ -14,7 +14,7 @@ Meta-Tree DSL is specifically designed to be easily "understood" by Large Langua
 
 ### AI Documentation
 
-We provide a specialized guide: [**AI-DOCS.md**](./ai-docs.md).
+We provide a specialized guide: [**AI-DOCS.md**](./ai-docs.md).  
 You can feed this file directly into an AI's context window. It contains:
 
 - Strict hierarchical rules and naming conventions.
@@ -37,9 +37,10 @@ import {
     Section,
     Tree,
     treeFromString,
-    treeFromStringWithMacros, // new in 2.0
-    preprocessMacros, // standalone preprocessor
-    MacroPreprocessor, // class for advanced usage
+    treeFromStringWithMacros,
+    preprocessMacros,
+    MacroPreprocessor,
+    expandMacros,
 } from '@supercat1337/meta-tree';
 ```
 
@@ -66,30 +67,60 @@ console.log(section.stringify());
 #### Record
 
 ```javascript
-const record = new Record('User', 'Profile', 'Update', 'Updates profile', { version: '2.0' });
+const record = new Record('user', 'profile', 'update', 'Updates user profile', { version: '2.0' });
 record.addField(new Field('username'));
 console.log(record.stringify());
 // Output:
-// User.Profile.Update version="2.0" // Updates profile
+// user.profile.update version="2.0" // Updates user profile
 //     username
 ```
+
+> **Note on `verb`:** The `verb` property of a record is automatically derived from the action name (e.g., `get`, `set`, `add`, `delete`, `list`, `check`). If the action name does not match any known pattern, `verb` will be `'other'`. For records without an action name (single‑segment names like `user`), `verb` is `null`. You can override the `verb` by providing a `verb` attribute in the record header.
 
 #### Tree
 
 ```javascript
 const tree = new Tree();
-tree.addRecord('Product', 'Price', 'Update');
+tree.addRecord('product', 'price', 'update');
 const serialized = tree.stringify();
 const parsed = treeFromString(serialized);
 ```
 
 ## DSL Format (Version 2.0)
 
-The DSL supports records, sections, fields, attributes, comments, and now **macros**.
+The DSL supports records, sections, fields, attributes, comments, and macros.
 
 ### Record Uniqueness
 
-Within a single Tree, each record must have a **unique full name** (`entity[.property][.verb]`). Duplicate names cause a parse error. This ensures that each API method or entity is defined only once.
+Within a single Tree, each record must have a **unique full name** (`entity[.property][.action]`). Duplicate names cause a parse error. This ensures that each API method or entity is defined only once.
+
+### Record Verb Classification
+
+Each record's `verb` is automatically determined by its action name:
+
+- Known CRUD-like prefixes: `get`, `set`, `add`, `delete`, `list`, `check` → corresponding verb.
+- Any other action name → `'other'`.
+- No action name (e.g., `user` – single‑segment record) → `null`.
+
+You can **override** the verb by adding a `verb` attribute in the record header. The attribute value must be one of: `get`, `set`, `add`, `delete`, `list`, `check`, `other`. Example:
+
+```
+user.profile verb="get"   // force verb='get', even though action name is 'profile'
+```
+
+For operations where `verb` is `'other'` (or even for CRUD verbs), you can provide additional semantics using the **`kind`** attribute (or any custom attribute) to help code generators decide how to handle the operation (e.g., file download, realtime subscription).
+
+Example:
+
+```
+document.download kind="file"
+    doc_id    type="string"
+
+events.longPoll kind="realtime" timeout="60"
+    [cursor] type="string"
+```
+
+Code generators may use `kind` to choose HTTP methods, content types, or protocols (WebSocket, SSE, etc.). The `kind` attribute is optional and free‑form.
 
 ### Macros
 
@@ -139,7 +170,7 @@ Define reusable blocks of DSL (fields, sections, even whole records). Can also h
 Invoke them on a separate line (with proper indentation). Parentheses are optional for macros without parameters.
 
 ```
-ListOrders method="GET" // Method to list orders
+listOrders method="GET" // Method to list orders
     #BaseMeta
     #Pagination()       // parentheses allowed
     filter        type="string"
@@ -184,7 +215,7 @@ links.add version="1.0" // Create a new link
 
 - `tree.stringify()` – produces DSL without macro definitions (expanded form).
 - `treeFromString(dsl)` – parses DSL without macro preprocessing.
-- `treeFromStringWithMacros(dsl)` – preprocesses macros, then parses.
+- `treeFromStringWithMacros(dsl)` – preprocesses macros, then parses. **The `verb` of each record is computed after macro expansion.**
 - `preprocessMacros(dsl)` – standalone macro expansion (returns expanded DSL string).
 - `MacroPreprocessor` – class for advanced usage (custom depth limits, etc.).
 - `expandMacros(dsl)` – parses DSL with macro definitions and calls, then serializes the resulting tree back to DSL, producing a fully expanded string without any macro calls or definitions. Equivalent to `treeFromStringWithMacros(dsl).stringify()`. Useful for debugging, generating canonical DSL, or preparing input for tools that do not support macros.
@@ -198,6 +229,8 @@ The library itself does not provide built‑in support for importing external ty
 
 - Use `ref="TypeName"` on a field or section to reference an external type definition.
 - Use `import="file.json5"` at the record or section level to load external schemas.
+- **For records with `verb === 'other'`, inspect the `kind` attribute (or a custom attribute of your choice) to determine the operation type. Suggested `kind` values: `'file'`, `'realtime'`, `'execute'`, `'system'`, `'custom'`.**
+- **If `kind` is absent, fall back to the `actionName` or other attributes to infer behaviour.**
 - The code generator is responsible for loading the external file, resolving references, and generating the target code (TypeScript interfaces, OpenAPI schemas, etc.).
 
 For detailed examples and best practices, see [**AI-DOCS.md**](./ai-docs.md).
@@ -268,6 +301,12 @@ For detailed examples and best practices, see [**AI-DOCS.md**](./ai-docs.md).
 | `toJSON`          | -                                                                                                                                   | `object`          | Returns JSON.                           |
 | `clone`           | -                                                                                                                                   | `Record`          | Deep copy.                              |
 
+**Record Properties** (not methods):
+
+| Property | Type                                                            | Description                                                                    |
+| -------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `verb`   | `"get"\|"set"\|"add"\|"delete"\|"list"\|"check"\|"other"\|null` | Auto‑derived from `actionName` (or overridden). `'other'` for unknown actions. |
+
 ### Tree
 
 | Method           | Parameters                                                                                                     | Return Type      | Description               |
@@ -284,12 +323,13 @@ For detailed examples and best practices, see [**AI-DOCS.md**](./ai-docs.md).
 
 ### Utility Functions
 
-| Function                   | Parameters              | Return Type         | Description                                                   |
-| -------------------------- | ----------------------- | ------------------- | ------------------------------------------------------------- |
-| `treeFromString`           | `treeString: string`    | `Tree`              | Parses DSL without macros.                                    |
-| `treeFromStringWithMacros` | `treeString: string`    | `Tree`              | Preprocesses macros and parses.                               |
-| `preprocessMacros`         | `dslString: string`     | `string`            | Expands macros only, returns DSL.                             |
-| `MacroPreprocessor`        | `maxAttrDepth?: number` | `MacroPreprocessor` | Class for advanced macro preprocessing (allows custom depth). |
+| Function                   | Parameters              | Return Type         | Description                                                                 |
+| -------------------------- | ----------------------- | ------------------- | --------------------------------------------------------------------------- |
+| `treeFromString`           | `treeString: string`    | `Tree`              | Parses DSL without macros.                                                  |
+| `treeFromStringWithMacros` | `treeString: string`    | `Tree`              | Preprocesses macros and parses. **Verb is computed after macro expansion.** |
+| `preprocessMacros`         | `dslString: string`     | `string`            | Expands macros only, returns DSL.                                           |
+| `MacroPreprocessor`        | `maxAttrDepth?: number` | `MacroPreprocessor` | Class for advanced macro preprocessing (allows custom depth).               |
+| `expandMacros`             | `dslString: string`     | `string`            | Fully expands macros and returns macro‑free DSL.                            |
 
 ## License
 

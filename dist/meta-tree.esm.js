@@ -1,13 +1,6 @@
 // @ts-check
 
 /**
- * @typedef {Object} ParsedHead
- * @property {string} name - The extracted name (record full name, section name, etc.)
- * @property {Map<string, string>} attributes - Map of attribute names to values (empty string for valueless)
- * @property {string|null} description - The comment after "//", or null
- */
-
-/**
  * Escapes a string for safe inclusion after "//".
  * Only backslashes, newlines, carriage returns are escaped.
  * @param {string} str - The raw description.
@@ -184,22 +177,6 @@ function parseAttributesAndComment(str) {
 // @ts-check
 
 /**
- * @typedef {Object} MacroAttr
- * @property {'attr'} type
- * @property {string[]} params
- * @property {string} body
- */
-
-/**
- * @typedef {Object} MacroBlock
- * @property {'block'} type
- * @property {string[]} params
- * @property {string} body
- */
-
-/** @typedef {MacroAttr | MacroBlock} Macro */
-
-/**
  * Main class for DSL macro preprocessing.
  * Handles both attribute and block macros with recursion protection.
  * Supports implicit (built-in) macros that are available without definition.
@@ -210,9 +187,9 @@ class MacroPreprocessor {
      * @param {number} [maxAttrDepth=10] - Maximum recursion depth for attribute macros.
      */
     constructor(implicitMacros = {}, maxAttrDepth = 10) {
-        /** @type {Record<string, Macro>} */
+        /** @type {Object<string, Macro>} */
         this.macros = {};
-        /** @type {Record<string, Macro>} */
+        /** @type {Object<string, Macro>} */
         this.implicitMacros = implicitMacros;
         this.maxAttrDepth = maxAttrDepth;
     }
@@ -582,6 +559,7 @@ function parseField(line) {
 function treeFromString(treeString) {
     const tree = new Tree();
     const lines = treeString.split('\n');
+    /** @type {null|Record} */
     let currentRecord = null;
     let currentSectionName = 'main';
 
@@ -609,6 +587,17 @@ function treeFromString(treeString) {
                 }
                 currentRecord = tree.addRecord(entityName, propertyName, actionName, description);
                 for (const [k, v] of attributes) currentRecord.setAttribute(k, v);
+
+                const explicitVerb = currentRecord.getAttribute('verb');
+                if (explicitVerb !== null) {
+                    const allowed = ['get', 'set', 'add', 'delete', 'list', 'check', 'other'];
+                    if (!allowed.includes(explicitVerb)) {
+                        throw new Error(`Invalid verb value: "${explicitVerb}" at line ...`);
+                    }
+                    // @ts-ignore
+                    currentRecord.verb = explicitVerb;
+                }
+
                 currentSectionName = 'main';
                 continue;
             }
@@ -665,7 +654,7 @@ function treeFromString(treeString) {
 /**
  * Parses a tree string with macro preprocessing.
  * @param {string} treeString
- * @param {Object<string, import('./macro-preprocessor.js').Macro>} [implicitMacros]
+ * @param {Object<string, Macro>} [implicitMacros]
  * @returns {Tree}
  */
 function treeFromStringWithMacros(treeString, implicitMacros = {}) {
@@ -1033,7 +1022,7 @@ class Section {
 /**
  * Attempts to determine the verb of an action from its name.
  * @param {string|null} actionName - The name of the action.
- * @returns {"get"|"set"|"add"|"delete"|"list"|"check"|null} The verb of the action, or null if it could not be determined.
+ * @returns {"get"|"set"|"add"|"delete"|"list"|"check"|"other"|null} The verb of the action, or null if it could not be determined.
  */
 function getVerbFromActionName(actionName) {
     if (!actionName) return null;
@@ -1090,7 +1079,7 @@ function getVerbFromActionName(actionName) {
     )
         return 'check';
 
-    return 'check'; // fallback
+    return 'other'; // fallback
 }
 
 // @ts-check
@@ -1103,7 +1092,7 @@ class Record {
     propertyName;
     /** @type {string|null} */
     actionName;
-    /** @type {"get"|"set"|"add"|"delete"|"list"|"check"|null} */
+    /** @type {"get"|"set"|"add"|"delete"|"list"|"check"|"other"|null} */
     verb;
     /** @type {Map<string, Section>} */
     sections;

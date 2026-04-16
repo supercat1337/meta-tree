@@ -179,3 +179,13 @@ links.add
     const actual = preprocessMacros(input);
     t.is(actual.trim(), expected.trim());
 });
+
+test('macro argument with commas inside quotes', t => {
+    const implicit = {
+        Enum: { type: 'attr', params: ['allowed'], body: 'type="enum" allowed=\'{{allowed}}\'' },
+    };
+    const input = `test\n    field    #Enum('["a","b"]')`;
+    const tree = treeFromStringWithMacros(input, implicit);
+    const field = tree.getRecord('test').getField('field');
+    t.is(field.getAttribute('allowed'), '["a","b"]');
+});

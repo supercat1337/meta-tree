@@ -282,12 +282,7 @@ class MacroPreprocessor {
                         }
 
                         const argsStr = callMatch[2] || '';
-                        const args = argsStr
-                            ? argsStr
-                                  .split(',')
-                                  .map(a => a.trim())
-                                  .filter(a => a !== '')
-                            : [];
+                        const args = argsStr ? this._parseMacroArgs(argsStr) : [];
                         if (args.length !== macro.params.length) {
                             throw new Error(
                                 `Block macro ${macroName} expects ${macro.params.length} arguments, got ${args.length}`
@@ -337,12 +332,7 @@ class MacroPreprocessor {
             const macro = this._getMacro(name);
             if (!macro || macro.type !== 'attr') return match;
 
-            const args = argsStr
-                ? argsStr
-                      .split(',')
-                      .map((/** @type {string} */ a) => a.trim())
-                      .filter((/** @type {string} */ a) => a !== '')
-                : [];
+            const args = argsStr ? this._parseMacroArgs(argsStr) : [];
             if (args.length !== macro.params.length) {
                 throw new Error(
                     `Attribute macro ${name} expects ${macro.params.length} arguments, got ${args.length}`
@@ -432,6 +422,71 @@ class MacroPreprocessor {
             body: bodyLines.join('\n'),
         };
         return i + 1; // skip the #end line
+    }
+
+    /**
+     * Parses a comma-separated list of arguments, respecting quotes.
+     * @param {string} argsStr
+     * @returns {string[]}
+     * @private
+     */
+    _parseMacroArgs(argsStr) {
+        const args = [];
+        let current = '';
+        let inQuote = false;
+        let quoteChar = '';
+        let escape = false;
+        for (let i = 0; i < argsStr.length; i++) {
+            const ch = argsStr[i];
+            if (escape) {
+                current += ch;
+                escape = false;
+                continue;
+            }
+            if (ch === '\\') {
+                escape = true;
+                current += ch;
+                continue;
+            }
+            if ((ch === '"' || ch === "'") && !inQuote) {
+                inQuote = true;
+                quoteChar = ch;
+                current += ch;
+                continue;
+            }
+            if (ch === quoteChar && inQuote) {
+                inQuote = false;
+                current += ch;
+                continue;
+            }
+            if (ch === ',' && !inQuote) {
+                // end of argument
+                let arg = current.trim();
+                // Remove surrounding quotes if present
+                if (
+                    (arg.startsWith("'") && arg.endsWith("'")) ||
+                    (arg.startsWith('"') && arg.endsWith('"'))
+                ) {
+                    arg = arg.slice(1, -1);
+                    // Unescape inner escapes? Not needed, will be handled later.
+                }
+                args.push(arg);
+                current = '';
+                continue;
+            }
+            current += ch;
+        }
+        if (current !== '') {
+            let arg = current.trim();
+            if (
+                (arg.startsWith("'") && arg.endsWith("'")) ||
+                (arg.startsWith('"') && arg.endsWith('"'))
+            ) {
+                arg = arg.slice(1, -1);
+            }
+            args.push(arg);
+        }
+        return args;
     }
 }
 

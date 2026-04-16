@@ -164,6 +164,13 @@ export class MacroPreprocessor {
      * @private
      */
     private _parseBlockDef;
+    /**
+     * Parses a comma-separated list of arguments, respecting quotes.
+     * @param {string} argsStr
+     * @returns {string[]}
+     * @private
+     */
+    private _parseMacroArgs;
 }
 
 /* From tools\tools.d.ts */

@@ -75,13 +75,13 @@ export function parseAttributesAndComment(str: string): {
 
 /* From tools\macro-preprocessor.d.ts */
 /**
- * Compatibility wrapper with optional implicit macros.
+ * Compatibility wrapper for macro preprocessing.
  * @param {string} dslString
- * @param {Object<string, Macro>} [implicitMacros]
+ * @param {Object<string, any>} [implicitMacros]
  * @returns {string}
  */
 export function preprocessMacros(dslString: string, implicitMacros?: {
-    [x: string]: Macro;
+    [x: string]: any;
 }): string;
 /**
  * Main class for DSL macro preprocessing.
@@ -90,21 +90,23 @@ export function preprocessMacros(dslString: string, implicitMacros?: {
  */
 export class MacroPreprocessor {
     /**
-     * @param {Object<string, Macro>} [implicitMacros] - Built-in macros available by default.
+     * @param {Object<string, any>} [implicitMacros] - Built-in macros available by default.
      * @param {number} [maxAttrDepth=10] - Maximum recursion depth for attribute macros.
      */
     constructor(implicitMacros?: {
-        [x: string]: Macro;
+        [x: string]: any;
     }, maxAttrDepth?: number);
-    /** @type {Object<string, Macro>} */
+    /** @type {Object<string, any>} */
     macros: {
-        [x: string]: Macro;
+        [x: string]: any;
     };
-    /** @type {Object<string, Macro>} */
+    /** @type {Object<string, any>} */
     implicitMacros: {
-        [x: string]: Macro;
+        [x: string]: any;
     };
     maxAttrDepth: number;
+    /** @type {string[]} */
+    traceStack: string[];
     /**
      * Preprocesses the DSL string.
      * @param {string} dslString - The raw DSL input.
@@ -114,7 +116,7 @@ export class MacroPreprocessor {
     /**
      * Retrieves a macro by name, first from user-defined, then from implicit.
      * @param {string} name
-     * @returns {Macro | undefined}
+     * @returns {any | undefined}
      * @private
      */
     private _getMacro;
@@ -127,8 +129,11 @@ export class MacroPreprocessor {
     private _extractMacros;
     /**
      * Expands block macros in lines, recursively.
-     * @param {string[]} lines
-     * @param {Set<string>} callStack
+     * Expands block and attribute macros with full context tracking.
+     * Context includes: Record, Section, Field, and Macro Call Stack.
+     * @param {string[]} lines - Lines to process.
+     * @param {Set<string>} callStack - Set of macro names to prevent recursion.
+     * @param {number} offset - The starting line index in the original/parent context.
      * @returns {string[]}
      * @private
      */
@@ -151,6 +156,20 @@ export class MacroPreprocessor {
      */
     private _replaceParams;
     /**
+     * Parses macro arguments respecting quotes and preserving escape slashes for DSL.
+     * @param {string} argsStr
+     * @returns {string[]}
+     * @private
+     */
+    private _parseMacroArgs;
+    /**
+     * Trims and removes outer quotes from a parsed argument.
+     * @param {string} arg
+     * @returns {string}
+     * @private
+     */
+    private _finalizeArg;
+    /**
      * Parses a #define-attr directive.
      * @param {string} trimmedLine
      * @private
@@ -164,13 +183,6 @@ export class MacroPreprocessor {
      * @private
      */
     private _parseBlockDef;
-    /**
-     * Parses a comma-separated list of arguments, respecting quotes.
-     * @param {string} argsStr
-     * @returns {string[]}
-     * @private
-     */
-    private _parseMacroArgs;
 }
 
 /* From tools\tools.d.ts */
@@ -180,6 +192,25 @@ export class MacroPreprocessor {
  * @returns {"get"|"set"|"add"|"delete"|"list"|"check"|"other"|null} The verb of the action, or null if it could not be determined.
  */
 export function getVerbFromActionName(actionName: string | null): "get" | "set" | "add" | "delete" | "list" | "check" | "other" | null;
+/**
+ * Formats a location string.
+ * @param {Object} data
+ * @param {string} data.recordName
+ * @param {string} [data.sectionName='']
+ * @param {string} [data.fieldName='']
+ * @returns {string} e.g., "users.add@main.user_id"
+ */
+export function formatLocationInTree({ recordName, sectionName, fieldName }: {
+    recordName: string;
+    sectionName?: string;
+    fieldName?: string;
+}): string;
+/**
+ *
+ * @param {*} e
+ * @returns {Error}
+ */
+export function getError(e: any): Error;
 
 /* From tools\treeFromString.d.ts */
 /**

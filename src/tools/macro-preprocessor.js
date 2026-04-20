@@ -1,5 +1,7 @@
 // @ts-check
 
+import { formatLocationInTree, getError } from './tools.js';
+
 /**
  * Main class for DSL macro preprocessing.
  * Handles both attribute and block macros with recursion protection.
@@ -7,15 +9,17 @@
  */
 export class MacroPreprocessor {
     /**
-     * @param {Object<string, Macro>} [implicitMacros] - Built-in macros available by default.
+     * @param {Object<string, any>} [implicitMacros] - Built-in macros available by default.
      * @param {number} [maxAttrDepth=10] - Maximum recursion depth for attribute macros.
      */
     constructor(implicitMacros = {}, maxAttrDepth = 10) {
-        /** @type {Object<string, Macro>} */
+        /** @type {Object<string, any>} */
         this.macros = {};
-        /** @type {Object<string, Macro>} */
+        /** @type {Object<string, any>} */
         this.implicitMacros = implicitMacros;
         this.maxAttrDepth = maxAttrDepth;
+        /** @type {string[]} */
+        this.traceStack = []; // Stack to track macro calls for error reporting
     }
 
     /**
@@ -26,6 +30,7 @@ export class MacroPreprocessor {
     preprocess(dslString) {
         const lines = dslString.split(/\r?\n/);
         const remainingLines = this._extractMacros(lines);
+        this.traceStack = [];
         const expandedLines = this._expandMacrosInLines(remainingLines, new Set());
         return expandedLines.join('\n');
     }
@@ -33,7 +38,7 @@ export class MacroPreprocessor {
     /**
      * Retrieves a macro by name, first from user-defined, then from implicit.
      * @param {string} name
-     * @returns {Macro | undefined}
+     * @returns {any | undefined}
      * @private
      */
     _getMacro(name) {
@@ -80,16 +85,62 @@ export class MacroPreprocessor {
 
     /**
      * Expands block macros in lines, recursively.
-     * @param {string[]} lines
-     * @param {Set<string>} callStack
+     * Expands block and attribute macros with full context tracking.
+     * Context includes: Record, Section, Field, and Macro Call Stack.
+     * @param {string[]} lines - Lines to process.
+     * @param {Set<string>} callStack - Set of macro names to prevent recursion.
+     * @param {number} offset - The starting line index in the original/parent context.
      * @returns {string[]}
      * @private
      */
-    _expandMacrosInLines(lines, callStack) {
+    _expandMacrosInLines(lines, callStack, offset = 0) {
         const result = [];
+        let currentRecord = 'unknown';
+        let currentSection = 'main';
+        let currentField = '';
 
-        for (let line of lines) {
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const currentLineIdx = offset + i;
             const trimmed = line.trim();
+
+            // --- Context Tracking ---
+            if (trimmed && !trimmed.startsWith('//') && !trimmed.startsWith('#')) {
+                const hasIndent = /^\s/.test(line);
+
+                if (!hasIndent && !trimmed.startsWith('@')) {
+                    // New Record: reset section and field
+                    currentRecord = trimmed.split(/[ \/]/)[0];
+                    currentSection = 'main';
+                    currentField = '';
+                } else if (trimmed.startsWith('@')) {
+                    // New Section: reset field
+                    currentSection = trimmed.slice(1).split(/[ \/]/)[0];
+                    currentField = '';
+                } else if (hasIndent) {
+                    // Likely a field: extract the first word as field name
+                    // We take the first part before spaces, macros, or brackets
+                    const fieldMatch = trimmed.match(/^([a-zA-Z0-9_.-]+)/);
+                    if (fieldMatch) {
+                        currentField = fieldMatch[1];
+                    }
+                }
+            }
+
+            /** Helper to build the error location string */
+            const getContext = () => {
+                let pos = formatLocationInTree({
+                    recordName: currentRecord,
+                    sectionName: currentSection,
+                    fieldName: currentField,
+                });
+                if (this.traceStack.length > 0) {
+                    pos += ` [Macro: ${this.traceStack.join(' -> ')}]`;
+                }
+                return pos;
+            };
+            // ------------------------
+
             const leadingSpaces = line.match(/^\s*/)?.[0] ?? '';
 
             if (trimmed.startsWith('#')) {
@@ -101,38 +152,56 @@ export class MacroPreprocessor {
                     if (macro && macro.type === 'block') {
                         if (callStack.has(macroName)) {
                             throw new Error(
-                                `Circular dependency: ${Array.from(callStack).join(' -> ')} -> ${macroName}`
+                                `Circular dependency: ${macroName} (at line ${currentLineIdx + 1}) (${getContext()})`
                             );
                         }
 
-                        const argsStr = callMatch[2] || '';
-                        const args = argsStr ? this._parseMacroArgs(argsStr) : [];
+                        let args = [];
+                        try {
+                            args = this._parseMacroArgs(callMatch[2] || '');
+                        } catch (e) {
+                            let err = getError(e);
+                            throw new Error(
+                                `Args error in #${macroName}: ${err.message} (at line ${currentLineIdx + 1}) (${getContext()})`
+                            );
+                        }
+
                         if (args.length !== macro.params.length) {
                             throw new Error(
-                                `Block macro ${macroName} expects ${macro.params.length} arguments, got ${args.length}`
+                                `Block macro ${macroName} expects ${macro.params.length} args, got ${args.length} (at line ${currentLineIdx + 1}) (${getContext()})`
                             );
                         }
 
-                        let body = this._replaceParams(macro.body, macro.params, args);
+                        this.traceStack.push(`${macroName}(${args.join(',')})`);
+                        const body = this._replaceParams(macro.body, macro.params, args);
                         const nextStack = new Set(callStack).add(macroName);
-                        const expandedBody = this._expandMacrosInLines(body.split('\n'), nextStack);
 
-                        for (let bLine of expandedBody) {
-                            const trimmedBody = bLine.trim();
-                            if (trimmedBody === '') {
-                                result.push('');
-                            } else {
-                                const originalIndent = bLine.match(/^\s*/)?.[0] ?? '';
-                                const withoutIndent = bLine.slice(originalIndent.length);
-                                result.push(leadingSpaces + withoutIndent);
-                            }
-                        }
+                        const expandedBody = this._expandMacrosInLines(
+                            body.split('\n'),
+                            nextStack,
+                            currentLineIdx
+                        );
+                        result.push(
+                            ...expandedBody.map(bLine => {
+                                if (bLine.trim() === '') return '';
+                                const bIndent = bLine.match(/^\s*/)?.[0] ?? '';
+                                return leadingSpaces + bLine.slice(bIndent.length);
+                            })
+                        );
+
+                        this.traceStack.pop();
                         continue;
                     }
                 }
             }
-            // Not a block macro invocation (or unknown macro)
-            result.push(this._expandLineAttributes(line));
+
+            try {
+                // Expanding inline attribute macros (where most type errors occur)
+                result.push(this._expandLineAttributes(line));
+            } catch (e) {
+                let err = getError(e);
+                throw new Error(`${err.message} (at line ${currentLineIdx + 1}) (${getContext()})`);
+            }
         }
         return result;
     }
@@ -150,13 +219,11 @@ export class MacroPreprocessor {
         }
 
         const regex = /#([a-zA-Z_]\w*)(?:\(([^)]*)\))?/g;
-        let result = line;
-
-        result = result.replace(regex, (match, name, argsStr) => {
+        return line.replace(regex, (match, name, argsStr) => {
             const macro = this._getMacro(name);
             if (!macro || macro.type !== 'attr') return match;
 
-            const args = argsStr ? this._parseMacroArgs(argsStr) : [];
+            const args = this._parseMacroArgs(argsStr || '');
             if (args.length !== macro.params.length) {
                 throw new Error(
                     `Attribute macro ${name} expects ${macro.params.length} arguments, got ${args.length}`
@@ -166,8 +233,6 @@ export class MacroPreprocessor {
             let expanded = this._replaceParams(macro.body, macro.params, args);
             return this._expandLineAttributes(expanded, depth + 1);
         });
-
-        return result;
     }
 
     /**
@@ -183,9 +248,87 @@ export class MacroPreprocessor {
         for (let i = 0; i < params.length; i++) {
             const param = params[i];
             const arg = args[i];
+            // Global replace for parameter placeholders
             result = result.replace(new RegExp(`{{${param}}}`, 'g'), arg);
         }
         return result;
+    }
+
+    /**
+     * Parses macro arguments respecting quotes and preserving escape slashes for DSL.
+     * @param {string} argsStr
+     * @returns {string[]}
+     * @private
+     */
+    _parseMacroArgs(argsStr) {
+        if (!argsStr.trim()) return [];
+
+        const args = [];
+        let current = '';
+        let inQuote = false;
+        let quoteChar = '';
+        let escape = false;
+
+        for (let i = 0; i < argsStr.length; i++) {
+            const ch = argsStr[i];
+
+            if (escape) {
+                current += ch;
+                escape = false;
+                continue;
+            }
+
+            if (ch === '\\') {
+                escape = true;
+                current += ch; // Keep the slash for the DSL parser to handle
+                continue;
+            }
+
+            if ((ch === '"' || ch === "'") && !inQuote) {
+                inQuote = true;
+                quoteChar = ch;
+                // Only treat as a wrapper quote if it's at the start of an argument
+                if (current.trim() === '') continue;
+            }
+
+            if (inQuote && ch === quoteChar) {
+                inQuote = false;
+                quoteChar = '';
+                continue;
+            }
+
+            if (ch === ',' && !inQuote) {
+                args.push(this._finalizeArg(current));
+                current = '';
+                continue;
+            }
+
+            current += ch;
+        }
+
+        if (inQuote) {
+            throw new Error(`Unclosed quote (${quoteChar}) in macro arguments: ${argsStr}`);
+        }
+
+        args.push(this._finalizeArg(current));
+        return args;
+    }
+
+    /**
+     * Trims and removes outer quotes from a parsed argument.
+     * @param {string} arg
+     * @returns {string}
+     * @private
+     */
+    _finalizeArg(arg) {
+        arg = arg.trim();
+        if (
+            (arg.startsWith('"') && arg.endsWith('"')) ||
+            (arg.startsWith("'") && arg.endsWith("'"))
+        ) {
+            return arg.slice(1, -1);
+        }
+        return arg;
     }
 
     /**
@@ -204,11 +347,7 @@ export class MacroPreprocessor {
                   .map(p => p.trim())
                   .filter(p => p)
             : [];
-        this.macros[name] = {
-            type: 'attr',
-            params,
-            body: body.trim(),
-        };
+        this.macros[name] = { type: 'attr', params, body: body.trim() };
     }
 
     /**
@@ -240,84 +379,15 @@ export class MacroPreprocessor {
         }
         if (i >= n) throw new Error(`Missing #end for macro block: ${name}`);
 
-        this.macros[name] = {
-            type: 'block',
-            params,
-            body: bodyLines.join('\n'),
-        };
-        return i + 1; // skip the #end line
-    }
-
-    /**
-     * Parses a comma-separated list of arguments, respecting quotes.
-     * @param {string} argsStr
-     * @returns {string[]}
-     * @private
-     */
-    _parseMacroArgs(argsStr) {
-        const args = [];
-        let current = '';
-        let inQuote = false;
-        let quoteChar = '';
-        let escape = false;
-        for (let i = 0; i < argsStr.length; i++) {
-            const ch = argsStr[i];
-            if (escape) {
-                current += ch;
-                escape = false;
-                continue;
-            }
-            if (ch === '\\') {
-                escape = true;
-                current += ch;
-                continue;
-            }
-            if ((ch === '"' || ch === "'") && !inQuote) {
-                inQuote = true;
-                quoteChar = ch;
-                current += ch;
-                continue;
-            }
-            if (ch === quoteChar && inQuote) {
-                inQuote = false;
-                current += ch;
-                continue;
-            }
-            if (ch === ',' && !inQuote) {
-                // end of argument
-                let arg = current.trim();
-                // Remove surrounding quotes if present
-                if (
-                    (arg.startsWith("'") && arg.endsWith("'")) ||
-                    (arg.startsWith('"') && arg.endsWith('"'))
-                ) {
-                    arg = arg.slice(1, -1);
-                    // Unescape inner escapes? Not needed, will be handled later.
-                }
-                args.push(arg);
-                current = '';
-                continue;
-            }
-            current += ch;
-        }
-        if (current !== '') {
-            let arg = current.trim();
-            if (
-                (arg.startsWith("'") && arg.endsWith("'")) ||
-                (arg.startsWith('"') && arg.endsWith('"'))
-            ) {
-                arg = arg.slice(1, -1);
-            }
-            args.push(arg);
-        }
-        return args;
+        this.macros[name] = { type: 'block', params, body: bodyLines.join('\n') };
+        return i + 1;
     }
 }
 
 /**
- * Compatibility wrapper with optional implicit macros.
+ * Compatibility wrapper for macro preprocessing.
  * @param {string} dslString
- * @param {Object<string, Macro>} [implicitMacros]
+ * @param {Object<string, any>} [implicitMacros]
  * @returns {string}
  */
 export function preprocessMacros(dslString, implicitMacros = {}) {

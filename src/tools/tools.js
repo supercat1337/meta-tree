@@ -62,3 +62,42 @@ export function getVerbFromActionName(actionName) {
 
     return 'other'; // fallback
 }
+
+/**
+ * Formats a location string.
+ * @param {Object} data
+ * @param {string} data.recordName
+ * @param {string} [data.sectionName='']
+ * @param {string} [data.fieldName='']
+ * @returns {string} e.g., "users.add@main.user_id"
+ */
+export function formatLocationInTree({ recordName, sectionName = '', fieldName = '' }) {
+    let result = '';
+
+    if (!recordName) return result;
+
+    result = recordName;
+
+    if (!sectionName) {
+        return recordName;
+    }
+
+    result += '@' + sectionName;
+
+    if (!fieldName) {
+        return result;
+    }
+
+    result += '.' + fieldName;
+
+    return result;
+}
+
+/**
+ *
+ * @param {*} e
+ * @returns {Error}
+ */
+export function getError(e) {
+    return e instanceof Error ? e : new Error(String(e));
+}

@@ -1,6 +1,6 @@
 // @ts-check
 
-import { Field, Record, Tree } from '../index.js';
+import { Field, formatLocationInTree, Record, Tree } from '../index.js';
 import { parseHead, parseAttributesAndComment } from './head-parser.js';
 import { preprocessMacros } from './macro-preprocessor.js';
 
@@ -118,6 +118,13 @@ export function treeFromString(treeString) {
     let currentRecord = null;
     let currentSectionName = 'main';
 
+    /** @returns {string} */
+    function getCurrentPosition() {
+        let recordName = currentRecord?.getFullName() || '';
+        let pos = formatLocationInTree({ recordName, sectionName: currentSectionName });
+        return pos;
+    }
+
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
         const trimmed = line.trim();
@@ -147,7 +154,9 @@ export function treeFromString(treeString) {
                 if (explicitVerb !== null) {
                     const allowed = ['get', 'set', 'add', 'delete', 'list', 'check', 'other'];
                     if (!allowed.includes(explicitVerb)) {
-                        throw new Error(`Invalid verb value: "${explicitVerb}" at line ...`);
+                        throw new Error(
+                            `Invalid verb value: "${explicitVerb}" at line ${lineNumber} (${getCurrentPosition()})`
+                        );
                     }
                     // @ts-ignore
                     currentRecord.verb = explicitVerb;
@@ -187,10 +196,8 @@ export function treeFromString(treeString) {
             let err = e instanceof Error ? e : new Error(String(e));
             // @ts-ignore
             if (!err.line) {
-                let recordName = currentRecord?.getFullName() || '';
-                let sectionName = recordName ? currentSectionName : '';
-
-                let postfix = recordName ? ` ((${recordName}@${sectionName})` : '';
+                let position = getCurrentPosition();
+                let postfix = position ? ` (${position})` : '';
                 let message = `${err.message} (at line ${lineNumber})${postfix}`;
 
                 err.message = message;

@@ -33,64 +33,96 @@ function unescapeComment(str) {
 }
 
 /**
- * Parses a string of HTML-like attributes, e.g. `key1=value1 key2 key3="quoted value"`.
- * Quoted values are JSON-parsed to handle escapes.
+ * Parses HTML-like attributes with support for KSON/JSON values.
+ * Optimized for performance and robust error handling.
  * @param {string} str - The attribute string.
  * @returns {Map<string, string>} Map of attribute names to values.
  */
 function parseAttributes(str) {
     const attrs = new Map();
-    const trimmed = str.trim();
-    if (!trimmed) return attrs;
+    if (!str || typeof str !== 'string') return attrs;
 
     let i = 0;
-    const n = trimmed.length;
+    const n = str.length;
 
     while (i < n) {
-        while (i < n && /\s/.test(trimmed[i])) i++;
+        // 1. Skip whitespace
+        while (i < n && /\s/.test(str[i])) i++;
         if (i >= n) break;
 
-        // Читаем имя атрибута
+        // 2. Parse attribute name (optimized: no slice in loop)
         let nameStart = i;
-        while (i < n && /[\w$-]/.test(trimmed[i])) i++;
-        if (nameStart === i) break; 
-        const name = trimmed.slice(nameStart, i);
+        while (i < n && /[a-zA-Z0-9_.-]/.test(str[i])) i++;
 
-        while (i < n && /\s/.test(trimmed[i])) i++;
-        if (i >= n || trimmed[i] !== '=') {
+        if (nameStart === i) {
+            // Safety: if we hit an unexpected character, move forward to avoid infinite loop
+            i++;
+            continue;
+        }
+        const name = str.slice(nameStart, i);
+
+        // Skip whitespace before '='
+        while (i < n && /\s/.test(str[i])) i++;
+
+        // 3. Handle boolean attributes
+        if (i >= n || str[i] !== '=') {
             attrs.set(name, '');
             continue;
         }
-        i++;
+        i++; // skip '='
 
-        while (i < n && /\s/.test(trimmed[i])) i++;
+        // Skip whitespace after '='
+        while (i < n && /\s/.test(str[i])) i++;
         if (i >= n) {
             attrs.set(name, '');
             break;
         }
 
+        // 4. Parse value
         let value = '';
-        const ch = trimmed[i];
-        if (ch === '"' || ch === "'") {
-            const quote = ch;
-            i++;
-            let valueStart = i;
-            while (i < n && trimmed[i] !== quote) {
-                if (trimmed[i] === '\\' && i + 1 < n) {
-                    i++;
+        const quote = str[i];
+
+        if (quote === '"' || quote === "'") {
+            i++; // skip opening quote
+            let rawValue = '';
+            let escaped = false;
+            let foundClosingQuote = false;
+
+            while (i < n) {
+                const char = str[i];
+                if (escaped) {
+                    // Logic for standard escape sequences
+                    if (char === 'n') rawValue += '\n';
+                    else if (char === 't') rawValue += '\t';
+                    else if (char === 'r') rawValue += '\r';
+                    else rawValue += char; // covers \\, \", \'
+                    escaped = false;
+                } else if (char === '\\') {
+                    escaped = true;
+                } else if (char === quote) {
+                    foundClosingQuote = true;
+                    i++; // skip closing quote
+                    break;
+                } else {
+                    rawValue += char;
                 }
                 i++;
             }
-            value = trimmed.slice(valueStart, i);
-            value = value.replace(/\\(["'])/g, '$1');
-            i++;
+
+            if (!foundClosingQuote) {
+                throw new Error(`Unclosed quote (${quote}) for attribute "${name}"`);
+            }
+            value = rawValue;
         } else {
+            // Unquoted value: read until next whitespace
             let valueStart = i;
-            while (i < n && !/\s/.test(trimmed[i])) i++;
-            value = trimmed.slice(valueStart, i);
+            while (i < n && !/\s/.test(str[i])) i++;
+            value = str.slice(valueStart, i);
         }
+
         attrs.set(name, value);
     }
+
     return attrs;
 }
 

@@ -1,5 +1,6 @@
 // @ts-check
 
+import { formatLocationInTree } from './tools/tools.js';
 import { treeFromStringWithMacros } from './tools/treeFromString.js';
 
 export { Tree } from './tree/tree.js';
@@ -19,3 +20,5 @@ export function expandMacros(dslString) {
     const tree = treeFromStringWithMacros(dslString);
     return tree.stringify();
 }
+
+export { formatLocationInTree };

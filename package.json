@@ -32,7 +32,7 @@
     ],
     "homepage": "https://github.com/supercat1337/meta-tree",
     "repository": {
-        "url": "https://github.com/supercat1337/meta-tree"
+        "url": "git+https://github.com/supercat1337/meta-tree.git"
     },
     "scripts": {
         "clean": "shx rm -rf ./dist && shx mkdir ./dist",

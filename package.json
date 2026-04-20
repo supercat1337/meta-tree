@@ -1,6 +1,6 @@
 {
     "name": "@supercat1337/meta-tree",
-    "version": "2.2.3",
+    "version": "2.2.4",
     "description": "A JavaScript library for creating, managing, and serializing hierarchical data structures with fields, sections, and records.",
     "license": "MIT",
     "author": "Albert Bazaleev",

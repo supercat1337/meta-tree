@@ -14,8 +14,8 @@ This document provides structured guidelines for writing and understanding Meta-
 
 ### 0.2. Macro Invocation
 
-- **Macros without parameters** are called **without parentheses**: `#BaseMeta`
-- **Macros with parameters** are called with parentheses and arguments: `#String(1,64)`
+- **Macros without parameters** are called **without parentheses**: `#baseMeta`
+- **Macros with parameters** are called with parentheses and arguments: `#string(1,64)`
 
 ### 0.3. Allowed Characters in Names
 
@@ -345,6 +345,8 @@ links.get
 > `preprocessMacros` does only string‑based macro substitution and may produce invalid DSL if the input has syntax errors.  
 > `expandMacros` fully validates the DSL syntax and guarantees a well‑formed output.
 
+> **Note for JavaScript users:** In the library implementation, the `Tree` class is named `MetaTree`, but the `stringify()` method and parsing functions behave identically to the description above.
+
 ## 9. Complete Example (with Macros, Correct Syntax)
 
 ```
@@ -370,8 +372,8 @@ listOrders method="GET" // Method to list orders
 **Key points in this example:**
 
 - **Record Header:** Attributes like `method="GET"` are written directly in the header without the `@` symbol.
-- **Macro Invocations:** - `#BaseMeta` demonstrates a call without parentheses.
-    - `#Pagination()` demonstrates a call with parentheses. Both styles are valid for macros without parameters.
+- **Macro Invocations:** `#baseMeta` demonstrates a call without parentheses.
+    - `#pagination()` demonstrates a call with parentheses. Both styles are valid for macros without parameters.
 - **Implicit Section:** All fields before the `@returns` marker automatically belong to the `main` section.
 - **Optional Fields:** `page` and `limit` (inside the macro) use the `[name="value"]` syntax for default values.
 - **Sections:** The `@returns` section is explicitly named and contains its own set of fields.

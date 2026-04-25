@@ -26,16 +26,39 @@ You can feed this file directly into an AI's context window. It contains:
 - **Zero Hallucinations:** Strict syntax reduces AI errors.
 - **Contract-First Development:** Describe your API once, then ask AI to generate SDKs for any language using the DSL as a source of truth.
 
+## Migrating from v2 to v3
+
+Version 3.0.0 renames all core classes to avoid conflicts with TypeScript built-in types:
+
+| v2 name | v3 name |
+|---------|---------|
+| `Record` | `MetaRecord` |
+| `Field`  | `MetaField`  |
+| `Section`| `MetaSection`|
+| `Tree`   | `MetaTree`   |
+
+Simply replace the class names in your imports and code. All method signatures remain identical.
+
+```diff
+- import { Record, Field, Section, Tree } from '@supercat1337/meta-tree';
++ import { MetaRecord, MetaField, MetaSection, MetaTree } from '@supercat1337/meta-tree';
+
+- const record = new Record('user', 'profile', 'update');
++ const record = new MetaRecord('user', 'profile', 'update');
+```
+
+Utility functions (`treeFromString`, `treeFromStringWithMacros`, `preprocessMacros`, `expandMacros`, `formatLocationInTree`) are unchanged.
+
 ## Usage
 
 ### Importing the Library
 
 ```javascript
 import {
-    Field,
-    Record,
-    Section,
-    Tree,
+    MetaField,
+    MetaRecord,
+    MetaSection,
+    MetaTree,
     treeFromString,
     treeFromStringWithMacros,
     preprocessMacros,
@@ -46,29 +69,29 @@ import {
 
 ### Core Classes
 
-#### Field
+#### MetaField
 
 ```javascript
-const field = new Field('username', false, null, 'Display name');
+const field = new MetaField('username', false, null, 'Display name');
 field.setAttribute('maxLength', '32');
 console.log(field.stringify()); // username    maxLength="32" // Display name
 ```
 
-#### Section
+#### MetaSection
 
 ```javascript
-const section = new Section('userDetails', { scope: 'public' }, 'User details');
-section.addField(new Field('email'));
+const section = new MetaSection('userDetails', { scope: 'public' }, 'User details');
+section.addField(new MetaField('email'));
 console.log(section.stringify());
 //     @userDetails scope="public" // User details
 //         email
 ```
 
-#### Record
+#### MetaRecord
 
 ```javascript
-const record = new Record('user', 'profile', 'update', 'Updates user profile', { version: '2.0' });
-record.addField(new Field('username'));
+const record = new MetaRecord('user', 'profile', 'update', 'Updates user profile', { version: '2.0' });
+record.addField(new MetaField('username'));
 console.log(record.stringify());
 // Output:
 // user.profile.update version="2.0" // Updates user profile
@@ -77,10 +100,10 @@ console.log(record.stringify());
 
 > **Note on `verb`:** The `verb` property of a record is automatically derived from the action name (e.g., `get`, `set`, `add`, `delete`, `list`, `check`). If the action name does not match any known pattern, `verb` will be `'other'`. For records without an action name (single‑segment names like `user`), `verb` is `null`. You can override the `verb` by providing a `verb` attribute in the record header.
 
-#### Tree
+#### MetaTree
 
 ```javascript
-const tree = new Tree();
+const tree = new MetaTree();
 tree.addRecord('product', 'price', 'update');
 const serialized = tree.stringify();
 const parsed = treeFromString(serialized);
@@ -237,96 +260,96 @@ For detailed examples and best practices, see [**AI-DOCS.md**](./ai-docs.md).
 
 ## API Reference
 
-### Field
+### MetaField
 
-| Method            | Parameters                                                                                          | Return Type      | Description                 |
-| ----------------- | --------------------------------------------------------------------------------------------------- | ---------------- | --------------------------- |
-| `constructor`     | `name: string`, `isOptional?: boolean`, `defaultValue?: string\|null`, `description?: string\|null` | -                | Creates a field.            |
-| `hasAttribute`    | `name: string`                                                                                      | `boolean`        | Checks attribute existence. |
-| `getAttribute`    | `name: string`                                                                                      | `string \| null` | Gets attribute value.       |
-| `deleteAttribute` | `name: string`                                                                                      | `void`           | Deletes attribute.          |
-| `setAttribute`    | `name: string`, `value?: string`                                                                    | `void`           | Sets attribute.             |
-| `stringify`       | -                                                                                                   | `string`         | Returns DSL string.         |
-| `toJSON`          | -                                                                                                   | `object`         | Returns JSON object.        |
-| `clone`           | -                                                                                                   | `Field`          | Deep copy.                  |
-| `setName`         | `name: string`                                                                                      | `void`           | Renames field.              |
-| `getName`         | -                                                                                                   | `string`         | Returns name.               |
+| Method            | Parameters                                                                                          | Return Type        | Description                 |
+| ----------------- | --------------------------------------------------------------------------------------------------- | ------------------ | --------------------------- |
+| `constructor`     | `name: string`, `isOptional?: boolean`, `defaultValue?: string\|null`, `description?: string\|null` | -                  | Creates a field.            |
+| `hasAttribute`    | `name: string`                                                                                      | `boolean`          | Checks attribute existence. |
+| `getAttribute`    | `name: string`                                                                                      | `string \| null`   | Gets attribute value.       |
+| `deleteAttribute` | `name: string`                                                                                      | `void`             | Deletes attribute.          |
+| `setAttribute`    | `name: string`, `value?: string`                                                                    | `void`             | Sets attribute.             |
+| `stringify`       | -                                                                                                   | `string`           | Returns DSL string.         |
+| `toJSON`          | -                                                                                                   | `object`           | Returns JSON object.        |
+| `clone`           | -                                                                                                   | `MetaField`        | Deep copy.                  |
+| `setName`         | `name: string`                                                                                      | `void`             | Renames field.              |
+| `getName`         | -                                                                                                   | `string`           | Returns name.               |
 
-### Section
+### MetaSection
 
-| Method            | Parameters                                                          | Return Type      | Description                       |
-| ----------------- | ------------------------------------------------------------------- | ---------------- | --------------------------------- |
-| `constructor`     | `name: string`, `attributes?: object`, `description?: string\|null` | -                | Creates section.                  |
-| `addField`        | `field: Field`                                                      | `void`           | Adds field (throws if duplicate). |
-| `hasField`        | `name: string`                                                      | `boolean`        | Checks field existence.           |
-| `getField`        | `name: string`                                                      | `Field \| null`  | Gets field.                       |
-| `setField`        | `field: Field`                                                      | `void`           | Sets field (overwrites).          |
-| `deleteField`     | `name: string`                                                      | `void`           | Deletes field.                    |
-| `getFields`       | -                                                                   | `Field[]`        | Returns all fields.               |
-| `getFieldNames`   | -                                                                   | `string[]`       | Returns field names.              |
-| `hasAttribute`    | `name: string`                                                      | `boolean`        | Checks attribute.                 |
-| `getAttribute`    | `name: string`                                                      | `string \| null` | Gets attribute.                   |
-| `deleteAttribute` | `name: string`                                                      | `void`           | Deletes attribute.                |
-| `setAttribute`    | `name: string`, `value: string`                                     | `void`           | Sets attribute.                   |
-| `stringify`       | `padding?: string`                                                  | `string`         | Returns DSL string.               |
-| `toJSON`          | -                                                                   | `object`         | Returns JSON.                     |
-| `clone`           | -                                                                   | `Section`        | Deep copy.                        |
-| `setName`         | `newName: string`                                                   | `void`           | Renames section.                  |
-| `getName`         | -                                                                   | `string`         | Returns name.                     |
+| Method            | Parameters                                                          | Return Type          | Description                       |
+| ----------------- | ------------------------------------------------------------------- | -------------------- | --------------------------------- |
+| `constructor`     | `name: string`, `attributes?: object`, `description?: string\|null` | -                    | Creates section.                  |
+| `addField`        | `field: MetaField`                                                  | `void`               | Adds field (throws if duplicate). |
+| `hasField`        | `name: string`                                                      | `boolean`            | Checks field existence.           |
+| `getField`        | `name: string`                                                      | `MetaField \| null`  | Gets field.                       |
+| `setField`        | `field: MetaField`                                                  | `void`               | Sets field (overwrites).          |
+| `deleteField`     | `name: string`                                                      | `void`               | Deletes field.                    |
+| `getFields`       | -                                                                   | `MetaField[]`        | Returns all fields.               |
+| `getFieldNames`   | -                                                                   | `string[]`           | Returns field names.              |
+| `hasAttribute`    | `name: string`                                                      | `boolean`            | Checks attribute.                 |
+| `getAttribute`    | `name: string`                                                      | `string \| null`     | Gets attribute.                   |
+| `deleteAttribute` | `name: string`                                                      | `void`               | Deletes attribute.                |
+| `setAttribute`    | `name: string`, `value: string`                                     | `void`               | Sets attribute.                   |
+| `stringify`       | `padding?: string`                                                  | `string`             | Returns DSL string.               |
+| `toJSON`          | -                                                                   | `object`             | Returns JSON.                     |
+| `clone`           | -                                                                   | `MetaSection`        | Deep copy.                        |
+| `setName`         | `newName: string`                                                   | `void`               | Renames section.                  |
+| `getName`         | -                                                                   | `string`             | Returns name.                     |
 
-### Record
+### MetaRecord
 
-| Method            | Parameters                                                                                                                          | Return Type       | Description                             |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------- | --------------------------------------- |
-| `constructor`     | `entityName: string`, `propertyName: string\|null`, `actionName: string\|null`, `description?: string\|null`, `attributes?: object` | -                 | Creates record.                         |
-| `getFullName`     | -                                                                                                                                   | `string`          | Returns `entity.property.action`.       |
-| `addSection`      | `name: string`, `attributes?: object`, `description?: string\|null`                                                                 | `Section`         | Adds section.                           |
-| `getSection`      | `name: string`                                                                                                                      | `Section \| null` | Gets section.                           |
-| `deleteSection`   | `name: string`                                                                                                                      | `void`            | Deletes section (cannot delete 'main'). |
-| `hasSection`      | `name: string`                                                                                                                      | `boolean`         | Checks existence.                       |
-| `setSection`      | `section: Section`                                                                                                                  | `void`            | Sets section (overwrites).              |
-| `getSections`     | -                                                                                                                                   | `Section[]`       | Returns all sections.                   |
-| `getMainSection`  | -                                                                                                                                   | `Section`         | Returns main section.                   |
-| `addField`        | `field: Field`, `sectionName?: string`                                                                                              | `void`            | Adds field (creates section if needed). |
-| `getField`        | `name: string`, `sectionName?: string`                                                                                              | `Field \| null`   | Gets field.                             |
-| `hasField`        | `name: string`, `sectionName?: string`                                                                                              | `boolean`         | Checks field.                           |
-| `setField`        | `field: Field`, `sectionName?: string`                                                                                              | `void`            | Sets field (creates section if needed). |
-| `deleteField`     | `name: string`, `sectionName?: string`                                                                                              | `boolean`         | Deletes field; returns true if existed. |
-| `getFields`       | `sectionName?: string`                                                                                                              | `Field[]`         | Returns fields in section.              |
-| `hasAttribute`    | `name: string`                                                                                                                      | `boolean`         | Checks record attribute.                |
-| `getAttribute`    | `name: string`                                                                                                                      | `string \| null`  | Gets record attribute.                  |
-| `deleteAttribute` | `name: string`                                                                                                                      | `void`            | Deletes record attribute.               |
-| `setAttribute`    | `name: string`, `value: string`                                                                                                     | `void`            | Sets record attribute.                  |
-| `stringify`       | -                                                                                                                                   | `string`          | Returns DSL string.                     |
-| `toJSON`          | -                                                                                                                                   | `object`          | Returns JSON.                           |
-| `clone`           | -                                                                                                                                   | `Record`          | Deep copy.                              |
+| Method            | Parameters                                                                                                                          | Return Type           | Description                             |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------- | --------------------------------------- |
+| `constructor`     | `entityName: string`, `propertyName: string\|null`, `actionName: string\|null`, `description?: string\|null`, `attributes?: object` | -                     | Creates record.                         |
+| `getFullName`     | -                                                                                                                                   | `string`              | Returns `entity.property.action`.       |
+| `addSection`      | `name: string`, `attributes?: object`, `description?: string\|null`                                                                 | `MetaSection`         | Adds section.                           |
+| `getSection`      | `name: string`                                                                                                                      | `MetaSection \| null` | Gets section.                           |
+| `deleteSection`   | `name: string`                                                                                                                      | `void`                | Deletes section (cannot delete 'main'). |
+| `hasSection`      | `name: string`                                                                                                                      | `boolean`             | Checks existence.                       |
+| `setSection`      | `section: MetaSection`                                                                                                              | `void`                | Sets section (overwrites).              |
+| `getSections`     | -                                                                                                                                   | `MetaSection[]`       | Returns all sections.                   |
+| `getMainSection`  | -                                                                                                                                   | `MetaSection`         | Returns main section.                   |
+| `addField`        | `field: MetaField`, `sectionName?: string`                                                                                          | `void`                | Adds field (creates section if needed). |
+| `getField`        | `name: string`, `sectionName?: string`                                                                                              | `MetaField \| null`   | Gets field.                             |
+| `hasField`        | `name: string`, `sectionName?: string`                                                                                              | `boolean`             | Checks field.                           |
+| `setField`        | `field: MetaField`, `sectionName?: string`                                                                                          | `void`                | Sets field (creates section if needed). |
+| `deleteField`     | `name: string`, `sectionName?: string`                                                                                              | `boolean`             | Deletes field; returns true if existed. |
+| `getFields`       | `sectionName?: string`                                                                                                              | `MetaField[]`         | Returns fields in section.              |
+| `hasAttribute`    | `name: string`                                                                                                                      | `boolean`             | Checks record attribute.                |
+| `getAttribute`    | `name: string`                                                                                                                      | `string \| null`      | Gets record attribute.                  |
+| `deleteAttribute` | `name: string`                                                                                                                      | `void`                | Deletes record attribute.               |
+| `setAttribute`    | `name: string`, `value: string`                                                                                                     | `void`                | Sets record attribute.                  |
+| `stringify`       | -                                                                                                                                   | `string`              | Returns DSL string.                     |
+| `toJSON`          | -                                                                                                                                   | `object`              | Returns JSON.                           |
+| `clone`           | -                                                                                                                                   | `MetaRecord`          | Deep copy.                              |
 
-**Record Properties** (not methods):
+**MetaRecord Properties** (not methods):
 
 | Property | Type                                                            | Description                                                                    |
 | -------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `verb`   | `"get"\|"set"\|"add"\|"delete"\|"list"\|"check"\|"other"\|null` | Auto‑derived from `actionName` (or overridden). `'other'` for unknown actions. |
 
-### Tree
+### MetaTree
 
-| Method           | Parameters                                                                                                     | Return Type      | Description               |
-| ---------------- | -------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------- |
-| `addRecord`      | `entityName: string`, `propertyName?: string\|null`, `actionName?: string\|null`, `description?: string\|null` | `Record`         | Adds record.              |
-| `hasRecord`      | `recordFullName: string`                                                                                       | `boolean`        | Checks record.            |
-| `getRecord`      | `recordFullName: string`                                                                                       | `Record \| null` | Gets record.              |
-| `deleteRecord`   | `recordFullName: string`                                                                                       | `void`           | Deletes record.           |
-| `getRecords`     | -                                                                                                              | `Record[]`       | Returns all records.      |
-| `setRecord`      | `record: Record`                                                                                               | `void`           | Sets record (overwrites). |
-| `getRecordNames` | -                                                                                                              | `string[]`       | Returns all full names.   |
-| `stringify`      | -                                                                                                              | `string`         | Serializes tree to DSL.   |
-| `toJSON`         | -                                                                                                              | `object`         | Returns JSON.             |
+| Method           | Parameters                                                                                                     | Return Type          | Description               |
+| ---------------- | -------------------------------------------------------------------------------------------------------------- | -------------------- | ------------------------- |
+| `addRecord`      | `entityName: string`, `propertyName?: string\|null`, `actionName?: string\|null`, `description?: string\|null` | `MetaRecord`         | Adds record.              |
+| `hasRecord`      | `recordFullName: string`                                                                                       | `boolean`            | Checks record.            |
+| `getRecord`      | `recordFullName: string`                                                                                       | `MetaRecord \| null` | Gets record.              |
+| `deleteRecord`   | `recordFullName: string`                                                                                       | `void`               | Deletes record.           |
+| `getRecords`     | -                                                                                                              | `MetaRecord[]`       | Returns all records.      |
+| `setRecord`      | `record: MetaRecord`                                                                                           | `void`               | Sets record (overwrites). |
+| `getRecordNames` | -                                                                                                              | `string[]`           | Returns all full names.   |
+| `stringify`      | -                                                                                                              | `string`             | Serializes tree to DSL.   |
+| `toJSON`         | -                                                                                                              | `object`             | Returns JSON.             |
 
 ### Utility Functions
 
 | Function                   | Parameters              | Return Type         | Description                                                                 |
 | -------------------------- | ----------------------- | ------------------- | --------------------------------------------------------------------------- |
-| `treeFromString`           | `treeString: string`    | `Tree`              | Parses DSL without macros.                                                  |
-| `treeFromStringWithMacros` | `treeString: string`    | `Tree`              | Preprocesses macros and parses. **Verb is computed after macro expansion.** |
+| `treeFromString`           | `treeString: string`    | `MetaTree`          | Parses DSL without macros.                                                  |
+| `treeFromStringWithMacros` | `treeString: string`    | `MetaTree`          | Preprocesses macros and parses. **Verb is computed after macro expansion.** |
 | `preprocessMacros`         | `dslString: string`     | `string`            | Expands macros only, returns DSL.                                           |
 | `MacroPreprocessor`        | `maxAttrDepth?: number` | `MacroPreprocessor` | Class for advanced macro preprocessing (allows custom depth).               |
 | `expandMacros`             | `dslString: string`     | `string`            | Fully expands macros and returns macro‑free DSL.                            |

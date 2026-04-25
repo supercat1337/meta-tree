@@ -284,15 +284,15 @@ Macros help avoid repetition. They are expanded **before** parsing.
 Define reusable attribute sets:
 
 ```
-#define-attr UInt32 type="integer" min="0" max="4294967295"
-#define-attr String(min,max) type="string" length_min="{{min}}" length_max="{{max}}"
+#define-attr uint32 type="integer" min="0" max="4294967295"
+#define-attr string(min,max) type="string" length_min="{{min}}" length_max="{{max}}"
 ```
 
 Use:
 
 ```
-user_id    #UInt32 is_primary
-name       #String(1,64)
+user_id    #uint32 is_primary
+name       #string(1,64)
 ```
 
 ### 8.2. Block Macros
@@ -300,7 +300,7 @@ name       #String(1,64)
 Define reusable blocks of fields or sections:
 
 ```
-#define-block LinkFields
+#define-block linkFields
     link_id    type="integer" is_primary
     user_id    type="integer"
 #end
@@ -310,19 +310,19 @@ Use on a separate line:
 
 ```
 links.add
-    #LinkFields
+    #linkFields
 ```
 
 Block macros can have parameters:
 
 ```
-#define-block PrefixedFields(prefix)
+#define-block prefixedFields(prefix)
     {{prefix}}_id    type="integer"
     {{prefix}}_name  type="string"
 #end
 
 links.get
-    #PrefixedFields(link)
+    #prefixedFields(link)
 ```
 
 ### 8.3. Macro Rules
@@ -348,19 +348,19 @@ links.get
 ## 9. Complete Example (with Macros, Correct Syntax)
 
 ```
-#define-block Pagination
+#define-block pagination
     [page="1"]    type="int" // Page number
     [limit="20"]  type="int" // Items per page
 #end
 
-#define-block BaseMeta
+#define-block baseMeta
     request_id    type="uuid"
     timestamp     type="datetime"
 #end
 
 listOrders method="GET" // Method to list orders
-    #BaseMeta
-    #Pagination()
+    #baseMeta
+    #pagination()
     filter        type="string"
 
     @returns

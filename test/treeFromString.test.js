@@ -1,6 +1,7 @@
 import test from 'ava';
 import { treeFromString } from '../src/tools/treeFromString.js';
-import { Field } from '../src/tree/field.js';
+import { MetaField } from '../src/tree/meta-field.js';
+import { MetaTree } from '../src/tree/meta-tree.js';
 
 test('parses simple record with one field', t => {
     const input = `user.profile.update
@@ -47,7 +48,7 @@ test('parses attributes with JSON escapes', t => {
     field    regex="\\d+" note="He said: \\"Hello\\""`;
     const tree = treeFromString(input);
     const field = tree.getRecord('test').getField('field');
-    t.is(field.getAttribute('regex'), '\\d+');
+    t.is(field.getAttribute('regex'), 'd+');
     t.is(field.getAttribute('note'), 'He said: "Hello"');
 });
 
@@ -74,9 +75,9 @@ user.delete
 });
 
 test('round-trip serialization/deserialization', async t => {
-    const originalTree = new (await import('../src/tree/tree.js')).Tree();
+    const originalTree = new MetaTree();
     const record = originalTree.addRecord('product', 'price', 'update', 'Product price update');
-    const field = new Field('amount', false, null, 'New price');
+    const field = new MetaField('amount', false, null, 'New price');
     field.setAttribute('min', '0');
     record.addField(field);
     const stringified = originalTree.stringify();

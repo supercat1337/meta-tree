@@ -33,6 +33,16 @@ const output = document.getElementById('output');
 const errorDiv = document.getElementById('error');
 
 /**
+ * Converts any thrown value to an Error object.
+ * @param {unknown} e - The thrown value.
+ * @returns {Error}
+ */
+export function getError(e) {
+    let err = e instanceof Error ? e : new Error(String(e));
+    return err;
+}
+
+/**
  * Parses the DSL string without macro preprocessing and displays JSON output.
  * @returns {void}
  */
@@ -41,7 +51,8 @@ function parseAndDisplay() {
         const tree = treeFromString(treeString.value);
         output.innerText = JSON.stringify(tree, null, 2);
         errorDiv.innerText = '';
-    } catch (err) {
+    } catch (e) {
+        let err = getError(e);
         errorDiv.innerText = `Parse error: ${err.message}`;
         output.innerText = '';
     }
@@ -56,7 +67,8 @@ function parseAndDisplayWithMacros() {
         const tree = treeFromStringWithMacros(treeString.value);
         output.innerText = JSON.stringify(tree, null, 2);
         errorDiv.innerText = '';
-    } catch (err) {
+    } catch (e) {
+        let err = getError(e);
         errorDiv.innerText = `Parse error (with macros): ${err.message}`;
         output.innerText = '';
     }
@@ -72,7 +84,8 @@ function beautify() {
         const beautified = tree.stringify();
         treeString.value = beautified;
         parseAndDisplay();
-    } catch (err) {
+    } catch (e) {
+        let err = getError(e);
         errorDiv.innerText = `Cannot beautify: ${err.message}`;
     }
 }
@@ -87,7 +100,8 @@ function beautifyWithMacros() {
         const beautified = tree.stringify();
         treeString.value = beautified;
         parseAndDisplayWithMacros();
-    } catch (err) {
+    } catch (e) {
+        let err = getError(e);
         errorDiv.innerText = `Cannot beautify (with macros): ${err.message}`;
     }
 }
@@ -124,29 +138,29 @@ function loadMacroExample() {
     // 1. No '@' for record attributes.
     // 2. 4-space indentation.
     // 3. Proper macro invocation syntax.
-    const macroExample = `#define-attr UInt32 type="integer" min="0" max="4294967295"
-#define-attr String(min,max) type="string" length_min="{{min}}" length_max="{{max}}"
+    const macroExample = `#define-attr uint32 type="integer" min="0" max="4294967295"
+#define-attr string(min,max) type="string" length_min="{{min}}" length_max="{{max}}"
 
-#define-block LinkFields
-    link_id    #UInt32 is_primary
-    user_id    #UInt32
-    link_name  #String(1,64)
+#define-block linkFields
+    link_id    #uint32 is_primary
+    user_id    #uint32
+    link_name  #string(1,64)
 #end
 
-#define-block LinkFieldsWithPrefix(prefix)
-    {{prefix}}_id    #UInt32 is_primary
-    {{prefix}}_name  #String(1,64)
+#define-block linkFieldsWithPrefix(prefix)
+    {{prefix}}_id    #uint32 is_primary
+    {{prefix}}_name  #string(1,64)
 #end
 
 links.add method="POST" // No '@' symbol here
-    #LinkFields
-    active_mode_require_auth    #UInt32 min="0" max="255"
+    #linkFields
+    active_mode_require_auth    #uint32 min="0" max="255"
 
     @returns
-        link_id    #UInt32
+        link_id    #uint32
 
 links.get method="GET" version="1.2"
-    #LinkFieldsWithPrefix(link)
+    #linkFieldsWithPrefix(link)
     extra_field    type="string"`;
     treeString.value = macroExample;
     parseAndDisplayWithMacros();

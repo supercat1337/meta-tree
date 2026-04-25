@@ -131,16 +131,16 @@ Macros are expanded in a **preprocessing step** before the main parser. The prep
 Define reusable sets of attributes. Can have parameters.
 
 ```
-#define-attr UInt32 type="integer" min="0" max="4294967295"
-#define-attr String(min,max) type="string" length_min="{{min}}" length_max="{{max}}"
+#define-attr uint32 type="integer" min="0" max="4294967295"
+#define-attr string(min,max) type="string" length_min="{{min}}" length_max="{{max}}"
 ```
 
 Use them inside field lines:
 
 ```
 links.add
-    link_id    #UInt32 is_primary
-    link_name  #String(1,64)
+    link_id    #uint32 is_primary
+    link_name  #string(1,64)
 ```
 
 After preprocessing:
@@ -156,12 +156,12 @@ links.add
 Define reusable blocks of DSL (fields, sections, even whole records). Can also have parameters.
 
 ```
-#define-block Pagination
+#define-block pagination
     [page="1"]    type="int" // Page number
     [limit="20"]  type="int" // Items per page
 #end
 
-#define-block BaseMeta
+#define-block baseMeta
     request_id    type="uuid"
     timestamp     type="datetime"
 #end
@@ -171,8 +171,8 @@ Invoke them on a separate line (with proper indentation). Parentheses are option
 
 ```
 listOrders method="GET" // Method to list orders
-    #BaseMeta
-    #Pagination()       // parentheses allowed
+    #baseMeta
+    #pagination()       // parentheses allowed
     filter        type="string"
 
     @returns
@@ -191,24 +191,24 @@ After preprocessing, the block macros are expanded in place, and any nested attr
 - Macros can be nested (attribute macros inside block macros, or block macros calling other block macros – with cycle detection).
 - Invocations use `#` (not `@`) to avoid confusion with sections.
 
-### Complete Example
+#### Complete Example
 
-```c
-#define-attr UInt32 type="integer" min="0" max="4294967295"
-#define-attr String(min,max) type="string" length_min="{{min}}" length_max="{{max}}"
+```
+#define-attr uint32 type="integer" min="0" max="4294967295"
+#define-attr string(min,max) type="string" length_min="{{min}}" length_max="{{max}}"
 
-#define-block LinkFields
-    link_id    #UInt32 is_primary
-    user_id    #UInt32
-    link_name  #String(1,64)
+#define-block linkFields
+    link_id    #uint32 is_primary
+    user_id    #uint32
+    link_name  #string(1,64)
 #end
 
 links.add version="1.0" // Create a new link
-    #LinkFields
-    active_mode_require_auth    #UInt32 min="0" max="255"
+    #linkFields
+    active_mode_require_auth    #uint32 min="0" max="255"
 
     @returns
-        link_id    #UInt32
+        link_id    #uint32
 ```
 
 ### Serialization and Parsing

@@ -743,7 +743,7 @@ function parseSectionLine(line) {
 /**
  * Parses a field line (including optional/default bracket syntax).
  * @param {string} line
- * @returns {Field}
+ * @returns {MetaField}
  * @throws {Error} When field syntax is invalid.
  */
 function parseField(line) {
@@ -802,7 +802,7 @@ function parseField(line) {
         rest = afterName.trim();
     }
 
-    const field = new Field(fieldName, isOptional, defaultValue);
+    const field = new MetaField(fieldName, isOptional, defaultValue);
     if (rest) {
         const { attributes, description } = parseAttributesAndComment(rest);
         for (const [k, v] of attributes) field.setAttribute(k, v);
@@ -814,12 +814,12 @@ function parseField(line) {
 /**
  * Parses a tree string into a Tree object.
  * @param {string} treeString - The DSL string.
- * @returns {Tree}
+ * @returns {MetaTree}
  */
 function treeFromString(treeString) {
-    const tree = new Tree();
+    const tree = new MetaTree();
     const lines = treeString.split('\n');
-    /** @type {null|Record} */
+    /** @type {null|MetaRecord} */
     let currentRecord = null;
     let currentSectionName = 'main';
 
@@ -922,7 +922,7 @@ function treeFromString(treeString) {
  * Parses a tree string with macro preprocessing.
  * @param {string} treeString
  * @param {Object<string, Macro>} [implicitMacros]
- * @returns {Tree}
+ * @returns {MetaTree}
  */
 function treeFromStringWithMacros(treeString, implicitMacros = {}) {
     const expanded = preprocessMacros(treeString, implicitMacros);
@@ -932,7 +932,7 @@ function treeFromStringWithMacros(treeString, implicitMacros = {}) {
 // @ts-check
 
 
-class Field {
+class MetaField {
     /** @type {string} */
     name;
     /** @type {Map<string, string>} */
@@ -1049,10 +1049,10 @@ class Field {
 
     /**
      * Creates a deep copy of the field.
-     * @returns {Field}
+     * @returns {MetaField}
      */
     clone() {
-        const f = new Field(this.name, this.isOptional, this.defaultValue, this.description);
+        const f = new MetaField(this.name, this.isOptional, this.defaultValue, this.description);
         for (const [k, v] of this.attributes) f.setAttribute(k, v);
         return f;
     }
@@ -1081,10 +1081,10 @@ class Field {
 // @ts-check
 
 
-class Section {
+class MetaSection {
     /** @type {string} */
     name;
-    /** @type {Map<string, Field>} */
+    /** @type {Map<string, MetaField>} */
     fields = new Map();
     /** @type {Map<string, string>} */
     attributes = new Map();
@@ -1120,7 +1120,7 @@ class Section {
 
     /**
      * Adds a field. Throws if a field with the same name already exists.
-     * @param {Field} field
+     * @param {MetaField} field
      * @throws {Error} When field name already exists.
      */
     addField(field) {
@@ -1140,7 +1140,7 @@ class Section {
     /**
      * Retrieves a field by name.
      * @param {string} name
-     * @returns {Field|null}
+     * @returns {MetaField|null}
      */
     getField(name) {
         return this.fields.get(name) || null;
@@ -1148,7 +1148,7 @@ class Section {
 
     /**
      * Sets a field (overwrites if exists).
-     * @param {Field} field
+     * @param {MetaField} field
      */
     setField(field) {
         this.fields.set(field.name, field);
@@ -1164,7 +1164,7 @@ class Section {
 
     /**
      * Returns all fields in the section.
-     * @returns {Field[]}
+     * @returns {MetaField[]}
      */
     getFields() {
         return Array.from(this.fields.values());
@@ -1237,7 +1237,7 @@ class Section {
      *   name: string,
      *   description: string|null,
      *   attributes: Array<[string, string]>,
-     *   fields: Array<ReturnType<Field['toJSON']>>
+     *   fields: Array<ReturnType<MetaField['toJSON']>>
      * }}
      */
     toJSON() {
@@ -1251,10 +1251,10 @@ class Section {
 
     /**
      * Creates a deep copy of the section.
-     * @returns {Section}
+     * @returns {MetaSection}
      */
     clone() {
-        const section = new Section(
+        const section = new MetaSection(
             this.name,
             Object.fromEntries(this.attributes),
             this.description
@@ -1287,7 +1287,7 @@ class Section {
 // @ts-check
 
 
-class Record {
+class MetaRecord {
     /** @type {string} */
     entityName;
     /** @type {string|null} */
@@ -1296,9 +1296,9 @@ class Record {
     actionName;
     /** @type {"get"|"set"|"add"|"delete"|"list"|"check"|"other"|null} */
     verb;
-    /** @type {Map<string, Section>} */
+    /** @type {Map<string, MetaSection>} */
     sections;
-    /** @type {Section} */
+    /** @type {MetaSection} */
     mainSection;
     /** @type {string|null} */
     description;
@@ -1355,7 +1355,7 @@ class Record {
         this.description = description;
 
         this.sections = new Map();
-        this.mainSection = new Section('main');
+        this.mainSection = new MetaSection('main');
         this.sections.set('main', this.mainSection);
 
         for (const [k, v] of Object.entries(attributes)) this.setAttribute(k, v);
@@ -1377,12 +1377,12 @@ class Record {
      * @param {string} name - Section name (unique).
      * @param {Object<string, string>} [attributes] - Section attributes.
      * @param {string|null} [description] - Section description.
-     * @returns {Section} The newly created section.
+     * @returns {MetaSection} The newly created section.
      * @throws {Error} When section already exists.
      */
     addSection(name, attributes = {}, description = null) {
         if (this.sections.has(name)) throw new Error(`Section already exists: ${name}`);
-        const section = new Section(name, attributes, description);
+        const section = new MetaSection(name, attributes, description);
         this.sections.set(name, section);
         if (name === 'main') this.mainSection = section;
         return section;
@@ -1391,7 +1391,7 @@ class Record {
     /**
      * Retrieves a section by name.
      * @param {string} name
-     * @returns {Section|null}
+     * @returns {MetaSection|null}
      */
     getSection(name) {
         return this.sections.get(name) || null;
@@ -1418,7 +1418,7 @@ class Record {
 
     /**
      * Sets a section (overwrites if exists). Updates mainSection reference if name is 'main'.
-     * @param {Section} section
+     * @param {MetaSection} section
      */
     setSection(section) {
         this.sections.set(section.name, section);
@@ -1427,7 +1427,7 @@ class Record {
 
     /**
      * Returns all sections.
-     * @returns {Section[]}
+     * @returns {MetaSection[]}
      */
     getSections() {
         return Array.from(this.sections.values());
@@ -1435,7 +1435,7 @@ class Record {
 
     /**
      * Returns the main section.
-     * @returns {Section}
+     * @returns {MetaSection}
      */
     getMainSection() {
         return this.mainSection;
@@ -1443,7 +1443,7 @@ class Record {
 
     /**
      * Adds a field to a section (creates the section if it does not exist).
-     * @param {Field} field
+     * @param {MetaField} field
      * @param {string} [sectionName='main']
      */
     addField(field, sectionName = 'main') {
@@ -1456,7 +1456,7 @@ class Record {
      * Retrieves a field from a section.
      * @param {string} name
      * @param {string} [sectionName='main']
-     * @returns {Field|null}
+     * @returns {MetaField|null}
      */
     getField(name, sectionName = 'main') {
         const section = this.sections.get(sectionName);
@@ -1476,7 +1476,7 @@ class Record {
 
     /**
      * Sets a field in a section (creates section if needed, overwrites existing field).
-     * @param {Field} field
+     * @param {MetaField} field
      * @param {string} [sectionName='main']
      */
     setField(field, sectionName = 'main') {
@@ -1502,7 +1502,7 @@ class Record {
     /**
      * Returns all fields in a section.
      * @param {string} [sectionName='main']
-     * @returns {Field[]}
+     * @returns {MetaField[]}
      */
     getFields(sectionName = 'main') {
         const section = this.sections.get(sectionName);
@@ -1569,7 +1569,7 @@ class Record {
      *   verb: string|null,
      *   description: string|null,
      *   attributes: Array<[string, string]>,
-     *   sections: Array<ReturnType<Section['toJSON']>>
+     *   sections: Array<ReturnType<MetaSection['toJSON']>>
      * }}
      */
     toJSON() {
@@ -1587,10 +1587,10 @@ class Record {
 
     /**
      * Creates a deep copy of the record.
-     * @returns {Record}
+     * @returns {MetaRecord}
      */
     clone() {
-        const record = new Record(
+        const record = new MetaRecord(
             this.entityName,
             this.propertyName,
             this.actionName,
@@ -1611,8 +1611,8 @@ class Record {
 // @ts-check
 
 
-class Tree {
-    /** @type {Map<string, Record>} */
+class MetaTree {
+    /** @type {Map<string, MetaRecord>} */
     records = new Map();
 
     constructor() {}
@@ -1623,11 +1623,11 @@ class Tree {
      * @param {string|null} [propertyName=null]
      * @param {string|null} [actionName=null]
      * @param {string|null} [description=null]
-     * @returns {Record}
+     * @returns {MetaRecord}
      * @throws {Error} When a record with the same full name already exists.
      */
     addRecord(entityName, propertyName = null, actionName = null, description = null) {
-        const record = new Record(entityName, propertyName, actionName, description);
+        const record = new MetaRecord(entityName, propertyName, actionName, description);
         const fullName = record.getFullName();
         if (this.records.has(fullName)) throw new Error(`Record already exists: ${fullName}`);
         this.records.set(fullName, record);
@@ -1646,7 +1646,7 @@ class Tree {
     /**
      * Retrieves a record by its full name.
      * @param {string} recordFullName
-     * @returns {Record|null}
+     * @returns {MetaRecord|null}
      */
     getRecord(recordFullName) {
         return this.records.get(recordFullName) || null;
@@ -1662,7 +1662,7 @@ class Tree {
 
     /**
      * Returns all records in the tree.
-     * @returns {Record[]}
+     * @returns {MetaRecord[]}
      */
     getRecords() {
         return Array.from(this.records.values());
@@ -1670,7 +1670,7 @@ class Tree {
 
     /**
      * Sets a record (overwrites if exists).
-     * @param {Record} record
+     * @param {MetaRecord} record
      */
     setRecord(record) {
         this.records.set(record.getFullName(), record);
@@ -1696,7 +1696,7 @@ class Tree {
 
     /**
      * Returns a JSON-compatible object.
-     * @returns {{ records: Array<ReturnType<Record['toJSON']>> }}
+     * @returns {{ records: Array<ReturnType<MetaRecord['toJSON']>> }}
      */
     toJSON() {
         return {
@@ -1719,4 +1719,4 @@ function expandMacros(dslString) {
     return tree.stringify();
 }
 
-export { Field, Record, Section, Tree, expandMacros, formatLocationInTree, preprocessMacros, treeFromString, treeFromStringWithMacros };
+export { MetaField, MetaRecord, MetaSection, MetaTree, expandMacros, formatLocationInTree, preprocessMacros, treeFromString, treeFromStringWithMacros };

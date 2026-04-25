@@ -6,10 +6,10 @@ import { treeFromStringWithMacros } from '../src/tools/treeFromString.js';
 
 test('attribute macro without parameters', t => {
     const input = `
-#define-attr UInt32 type="integer" min="0" max="4294967295"
+#define-attr uint32 type="integer" min="0" max="4294967295"
 
 links.add
-    link_id    #UInt32
+    link_id    #uint32
 `;
     const expected = `
 links.add
@@ -21,10 +21,10 @@ links.add
 
 test('attribute macro with parameters', t => {
     const input = `
-#define-attr String(min,max) type="string" length_min="{{min}}" length_max="{{max}}"
+#define-attr string(min,max) type="string" length_min="{{min}}" length_max="{{max}}"
 
 links.add
-    link_name  #String(1,64)
+    link_name  #string(1,64)
 `;
     const expected = `
 links.add
@@ -36,13 +36,13 @@ links.add
 
 test('block macro', t => {
     const input = `
-#define-block LinkFields
+#define-block linkFields
     link_id    type="integer"
     user_id    type="integer"
 #end
 
 links.add
-    #LinkFields
+    #linkFields
 `;
     const expected = `
 links.add
@@ -55,14 +55,14 @@ links.add
 
 test('nested macros (attribute inside block)', t => {
     const input = `
-#define-attr UInt32 type="integer" min="0" max="4294967295"
-#define-block LinkFields
-    link_id    #UInt32
-    user_id    #UInt32
+#define-attr uint32 type="integer" min="0" max="4294967295"
+#define-block linkFields
+    link_id    #uint32
+    user_id    #uint32
 #end
 
 links.add
-    #LinkFields
+    #linkFields
 `;
     const expected = `
 links.add
@@ -75,24 +75,24 @@ links.add
 
 test('macro redefinition throws error', t => {
     const input = `
-#define-attr UInt32 type="integer"
-#define-attr UInt32 type="float"
+#define-attr uint32 type="integer"
+#define-attr uint32 type="float"
 `;
     t.throws(() => preprocessMacros(input), { message: /Macro already defined/ });
 });
 
 test('macro argument count mismatch throws error', t => {
     const input = `
-#define-attr String(min,max) type="string"
+#define-attr string(min,max) type="string"
 links.add
-    link_name  #String(1)
+    link_name  #string(1)
 `;
     t.throws(() => preprocessMacros(input), { message: /expects 2 arguments, got 1/ });
 });
 
 test('missing #end throws error', t => {
     const input = `
-#define-block LinkFields
+#define-block linkFields
     link_id    type="integer"
 `;
     t.throws(() => preprocessMacros(input), { message: /Missing #end/ });
@@ -100,14 +100,14 @@ test('missing #end throws error', t => {
 
 test('integration with treeFromStringWithMacros', t => {
     const input = `
-#define-attr UInt32 type="integer" min="0" max="4294967295"
+#define-attr uint32 type="integer" min="0" max="4294967295"
 
 links.add
-    link_id    #UInt32 is_primary
-    user_id    #UInt32
+    link_id    #uint32 is_primary
+    user_id    #uint32
 
     @returns
-        link_id    #UInt32
+        link_id    #uint32
 `;
     const tree = treeFromStringWithMacros(input);
     const record = tree.getRecord('links.add');
@@ -127,10 +127,10 @@ links.add
 
 test('macro call inside attribute macro body (nested expansion)', t => {
     const input = `
-#define-attr Base type="integer"
-#define-attr Extended #Base min="0"
+#define-attr base type="integer"
+#define-attr extended #base min="0"
 links.add
-    field    #Extended
+    field    #extended
 `;
     const expected = `
 links.add
@@ -142,14 +142,14 @@ links.add
 
 test('block macro with empty lines in body', t => {
     const input = `
-#define-block FieldsWithGap
+#define-block fieldsWithGap
     field1    type="string"
 
     field2    type="integer"
 #end
 
 test.record
-    #FieldsWithGap
+    #fieldsWithGap
 `;
     const expected = `
 test.record
@@ -163,13 +163,13 @@ test.record
 
 test('block macro with parameters', t => {
     const input = `
-#define-block LinkFields(prefix)
+#define-block linkFields(prefix)
     {{prefix}}_id    type="integer"
     {{prefix}}_name  type="string"
 #end
 
 links.add
-    #LinkFields(link)
+    #linkFields(link)
 `;
     const expected = `
 links.add

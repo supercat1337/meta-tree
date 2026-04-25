@@ -1,12 +1,12 @@
 // @ts-check
 
-import { Field } from './field.js';
+import { MetaField } from './meta-field.js';
 import { stringifyHead, parseHead } from '../tools/head-parser.js';
 
-export class Section {
+export class MetaSection {
     /** @type {string} */
     name;
-    /** @type {Map<string, Field>} */
+    /** @type {Map<string, MetaField>} */
     fields = new Map();
     /** @type {Map<string, string>} */
     attributes = new Map();
@@ -42,7 +42,7 @@ export class Section {
 
     /**
      * Adds a field. Throws if a field with the same name already exists.
-     * @param {Field} field
+     * @param {MetaField} field
      * @throws {Error} When field name already exists.
      */
     addField(field) {
@@ -62,7 +62,7 @@ export class Section {
     /**
      * Retrieves a field by name.
      * @param {string} name
-     * @returns {Field|null}
+     * @returns {MetaField|null}
      */
     getField(name) {
         return this.fields.get(name) || null;
@@ -70,7 +70,7 @@ export class Section {
 
     /**
      * Sets a field (overwrites if exists).
-     * @param {Field} field
+     * @param {MetaField} field
      */
     setField(field) {
         this.fields.set(field.name, field);
@@ -86,7 +86,7 @@ export class Section {
 
     /**
      * Returns all fields in the section.
-     * @returns {Field[]}
+     * @returns {MetaField[]}
      */
     getFields() {
         return Array.from(this.fields.values());
@@ -159,7 +159,7 @@ export class Section {
      *   name: string,
      *   description: string|null,
      *   attributes: Array<[string, string]>,
-     *   fields: Array<ReturnType<Field['toJSON']>>
+     *   fields: Array<ReturnType<MetaField['toJSON']>>
      * }}
      */
     toJSON() {
@@ -173,10 +173,10 @@ export class Section {
 
     /**
      * Creates a deep copy of the section.
-     * @returns {Section}
+     * @returns {MetaSection}
      */
     clone() {
-        const section = new Section(
+        const section = new MetaSection(
             this.name,
             Object.fromEntries(this.attributes),
             this.description

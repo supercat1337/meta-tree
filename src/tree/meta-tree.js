@@ -1,9 +1,9 @@
 // @ts-check
 
-import { Record } from './record.js';
+import { MetaRecord } from './meta-record.js';
 
-export class Tree {
-    /** @type {Map<string, Record>} */
+export class MetaTree {
+    /** @type {Map<string, MetaRecord>} */
     records = new Map();
 
     constructor() {}
@@ -14,11 +14,11 @@ export class Tree {
      * @param {string|null} [propertyName=null]
      * @param {string|null} [actionName=null]
      * @param {string|null} [description=null]
-     * @returns {Record}
+     * @returns {MetaRecord}
      * @throws {Error} When a record with the same full name already exists.
      */
     addRecord(entityName, propertyName = null, actionName = null, description = null) {
-        const record = new Record(entityName, propertyName, actionName, description);
+        const record = new MetaRecord(entityName, propertyName, actionName, description);
         const fullName = record.getFullName();
         if (this.records.has(fullName)) throw new Error(`Record already exists: ${fullName}`);
         this.records.set(fullName, record);
@@ -37,7 +37,7 @@ export class Tree {
     /**
      * Retrieves a record by its full name.
      * @param {string} recordFullName
-     * @returns {Record|null}
+     * @returns {MetaRecord|null}
      */
     getRecord(recordFullName) {
         return this.records.get(recordFullName) || null;
@@ -53,7 +53,7 @@ export class Tree {
 
     /**
      * Returns all records in the tree.
-     * @returns {Record[]}
+     * @returns {MetaRecord[]}
      */
     getRecords() {
         return Array.from(this.records.values());
@@ -61,7 +61,7 @@ export class Tree {
 
     /**
      * Sets a record (overwrites if exists).
-     * @param {Record} record
+     * @param {MetaRecord} record
      */
     setRecord(record) {
         this.records.set(record.getFullName(), record);
@@ -87,7 +87,7 @@ export class Tree {
 
     /**
      * Returns a JSON-compatible object.
-     * @returns {{ records: Array<ReturnType<Record['toJSON']>> }}
+     * @returns {{ records: Array<ReturnType<MetaRecord['toJSON']>> }}
      */
     toJSON() {
         return {

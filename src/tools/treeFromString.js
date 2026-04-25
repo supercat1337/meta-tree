@@ -1,6 +1,6 @@
 // @ts-check
 
-import { Field, formatLocationInTree, Record, Tree } from '../index.js';
+import { MetaField, formatLocationInTree, MetaRecord, MetaTree } from '../index.js';
 import { parseHead, parseAttributesAndComment } from './head-parser.js';
 import { preprocessMacros } from './macro-preprocessor.js';
 
@@ -38,7 +38,7 @@ function parseSectionLine(line) {
 /**
  * Parses a field line (including optional/default bracket syntax).
  * @param {string} line
- * @returns {Field}
+ * @returns {MetaField}
  * @throws {Error} When field syntax is invalid.
  */
 function parseField(line) {
@@ -97,7 +97,7 @@ function parseField(line) {
         rest = afterName.trim();
     }
 
-    const field = new Field(fieldName, isOptional, defaultValue);
+    const field = new MetaField(fieldName, isOptional, defaultValue);
     if (rest) {
         const { attributes, description } = parseAttributesAndComment(rest);
         for (const [k, v] of attributes) field.setAttribute(k, v);
@@ -109,12 +109,12 @@ function parseField(line) {
 /**
  * Parses a tree string into a Tree object.
  * @param {string} treeString - The DSL string.
- * @returns {Tree}
+ * @returns {MetaTree}
  */
 export function treeFromString(treeString) {
-    const tree = new Tree();
+    const tree = new MetaTree();
     const lines = treeString.split('\n');
-    /** @type {null|Record} */
+    /** @type {null|MetaRecord} */
     let currentRecord = null;
     let currentSectionName = 'main';
 
@@ -217,7 +217,7 @@ export function treeFromString(treeString) {
  * Parses a tree string with macro preprocessing.
  * @param {string} treeString
  * @param {Object<string, Macro>} [implicitMacros]
- * @returns {Tree}
+ * @returns {MetaTree}
  */
 export function treeFromStringWithMacros(treeString, implicitMacros = {}) {
     const expanded = preprocessMacros(treeString, implicitMacros);

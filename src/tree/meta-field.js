@@ -2,7 +2,7 @@
 
 import { parseHead, stringifyHead } from '../tools/head-parser.js';
 
-export class Field {
+export class MetaField {
     /** @type {string} */
     name;
     /** @type {Map<string, string>} */
@@ -119,10 +119,10 @@ export class Field {
 
     /**
      * Creates a deep copy of the field.
-     * @returns {Field}
+     * @returns {MetaField}
      */
     clone() {
-        const f = new Field(this.name, this.isOptional, this.defaultValue, this.description);
+        const f = new MetaField(this.name, this.isOptional, this.defaultValue, this.description);
         for (const [k, v] of this.attributes) f.setAttribute(k, v);
         return f;
     }

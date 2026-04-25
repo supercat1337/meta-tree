@@ -3,10 +3,10 @@
 import { formatLocationInTree } from './tools/tools.js';
 import { treeFromStringWithMacros } from './tools/treeFromString.js';
 
-export { Tree } from './tree/tree.js';
-export { Record } from './tree/record.js';
-export { Section } from './tree/section.js';
-export { Field } from './tree/field.js';
+export { MetaTree } from './tree/meta-tree.js';
+export { MetaRecord } from './tree/meta-record.js';
+export { MetaSection } from './tree/meta-section.js';
+export { MetaField } from './tree/meta-field.js';
 export { treeFromString, treeFromStringWithMacros } from './tools/treeFromString.js';
 export { preprocessMacros } from './tools/macro-preprocessor.js';
 

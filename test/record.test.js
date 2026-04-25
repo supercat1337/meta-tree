@@ -1,9 +1,9 @@
 import test from 'ava';
-import { Record } from '../src/tree/record.js';
-import { Field } from '../src/tree/field.js';
+import { MetaRecord } from '../src/tree/meta-record.js';
+import { MetaField } from '../src/tree/meta-field.js';
 
 test('constructor creates record with main section', t => {
-    const record = new Record('user', 'profile', 'update', 'User profile update');
+    const record = new MetaRecord('user', 'profile', 'update', 'User profile update');
     t.is(record.entityName, 'user');
     t.is(record.propertyName, 'profile');
     t.is(record.actionName, 'update');
@@ -14,16 +14,16 @@ test('constructor creates record with main section', t => {
 });
 
 test('getFullName constructs name correctly', t => {
-    let r = new Record('user', null, null);
+    let r = new MetaRecord('user', null, null);
     t.is(r.getFullName(), 'user');
-    r = new Record('user', 'profile', null);
+    r = new MetaRecord('user', 'profile', null);
     t.is(r.getFullName(), 'user.profile');
-    r = new Record('user', 'profile', 'update');
+    r = new MetaRecord('user', 'profile', 'update');
     t.is(r.getFullName(), 'user.profile.update');
 });
 
 test('addSection and getSection', t => {
-    const record = new Record('order');
+    const record = new MetaRecord('order');
     const section = record.addSection('items');
     t.true(record.hasSection('items'));
     t.is(record.getSection('items'), section);
@@ -32,48 +32,48 @@ test('addSection and getSection', t => {
 });
 
 test('addField to main section', t => {
-    const record = new Record('user');
-    const field = new Field('username');
+    const record = new MetaRecord('user');
+    const field = new MetaField('username');
     record.addField(field);
     t.true(record.hasField('username'));
     t.is(record.getField('username'), field);
 });
 
 test('addField to custom section', t => {
-    const record = new Record('user');
-    const field = new Field('street');
+    const record = new MetaRecord('user');
+    const field = new MetaField('street');
     record.addField(field, 'address');
     t.true(record.hasSection('address'));
     t.true(record.hasField('street', 'address'));
 });
 
 test('getFields returns array or empty array', t => {
-    const record = new Record('user');
+    const record = new MetaRecord('user');
     t.deepEqual(record.getFields(), []);
-    record.addField(new Field('name'));
+    record.addField(new MetaField('name'));
     t.is(record.getFields().length, 1);
     t.deepEqual(record.getFields('nonexistent'), []);
 });
 
 test('deleteField returns boolean', t => {
-    const record = new Record('user');
-    record.addField(new Field('name'));
+    const record = new MetaRecord('user');
+    record.addField(new MetaField('name'));
     t.true(record.deleteField('name'));
     t.false(record.deleteField('name'));
 });
 
 test('stringify includes description with minimal escaping', t => {
-    const record = new Record('user', null, null, 'Line1\nLine2\\Backslash');
+    const record = new MetaRecord('user', null, null, 'Line1\nLine2\\Backslash');
     const str = record.stringify();
     t.true(str.includes('Line1\\nLine2\\\\Backslash'));
 });
 
 test('clone creates independent copy', t => {
-    const original = new Record('user', 'profile', 'update');
-    original.addField(new Field('age'));
+    const original = new MetaRecord('user', 'profile', 'update');
+    original.addField(new MetaField('age'));
     const cloned = original.clone();
     t.deepEqual(original.toJSON(), cloned.toJSON());
     t.not(original, cloned);
-    cloned.addField(new Field('newField'));
+    cloned.addField(new MetaField('newField'));
     t.false(original.hasField('newField'));
 });

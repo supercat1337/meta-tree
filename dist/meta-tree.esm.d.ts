@@ -216,21 +216,21 @@ export function getError(e: any): Error;
 /**
  * Parses a tree string into a Tree object.
  * @param {string} treeString - The DSL string.
- * @returns {Tree}
+ * @returns {MetaTree}
  */
-export function treeFromString(treeString: string): Tree;
+export function treeFromString(treeString: string): MetaTree;
 /**
  * Parses a tree string with macro preprocessing.
  * @param {string} treeString
  * @param {Object<string, Macro>} [implicitMacros]
- * @returns {Tree}
+ * @returns {MetaTree}
  */
 export function treeFromStringWithMacros(treeString: string, implicitMacros?: {
     [x: string]: Macro;
-}): Tree;
+}): MetaTree;
 
-/* From tree\field.d.ts */
-export class Field {
+/* From tree\meta-field.d.ts */
+export class MetaField {
     /**
      * Creates a new Field.
      * @param {string} name - Field name (allowed: letters, digits, underscore, dot).
@@ -297,9 +297,9 @@ export class Field {
     };
     /**
      * Creates a deep copy of the field.
-     * @returns {Field}
+     * @returns {MetaField}
      */
-    clone(): Field;
+    clone(): MetaField;
     /**
      * Renames the field.
      * @param {string} name - New name (validated).
@@ -313,8 +313,8 @@ export class Field {
     getName(): string;
 }
 
-/* From tree\record.d.ts */
-export class Record {
+/* From tree\meta-record.d.ts */
+export class MetaRecord {
     /**
      * Creates a new Record.
      * @param {string} entityName - Entity name (letters, digits, underscore, hyphen).
@@ -335,10 +335,10 @@ export class Record {
     actionName: string | null;
     /** @type {"get"|"set"|"add"|"delete"|"list"|"check"|"other"|null} */
     verb: "get" | "set" | "add" | "delete" | "list" | "check" | "other" | null;
-    /** @type {Map<string, Section>} */
-    sections: Map<string, Section>;
-    /** @type {Section} */
-    mainSection: Section;
+    /** @type {Map<string, MetaSection>} */
+    sections: Map<string, MetaSection>;
+    /** @type {MetaSection} */
+    mainSection: MetaSection;
     /** @type {string|null} */
     description: string | null;
     /** @type {Map<string, string>} */
@@ -353,18 +353,18 @@ export class Record {
      * @param {string} name - Section name (unique).
      * @param {Object<string, string>} [attributes] - Section attributes.
      * @param {string|null} [description] - Section description.
-     * @returns {Section} The newly created section.
+     * @returns {MetaSection} The newly created section.
      * @throws {Error} When section already exists.
      */
     addSection(name: string, attributes?: {
         [x: string]: string;
-    }, description?: string | null): Section;
+    }, description?: string | null): MetaSection;
     /**
      * Retrieves a section by name.
      * @param {string} name
-     * @returns {Section|null}
+     * @returns {MetaSection|null}
      */
-    getSection(name: string): Section | null;
+    getSection(name: string): MetaSection | null;
     /**
      * Deletes a section (cannot delete 'main').
      * @param {string} name
@@ -379,32 +379,32 @@ export class Record {
     hasSection(name: string): boolean;
     /**
      * Sets a section (overwrites if exists). Updates mainSection reference if name is 'main'.
-     * @param {Section} section
+     * @param {MetaSection} section
      */
-    setSection(section: Section): void;
+    setSection(section: MetaSection): void;
     /**
      * Returns all sections.
-     * @returns {Section[]}
+     * @returns {MetaSection[]}
      */
-    getSections(): Section[];
+    getSections(): MetaSection[];
     /**
      * Returns the main section.
-     * @returns {Section}
+     * @returns {MetaSection}
      */
-    getMainSection(): Section;
+    getMainSection(): MetaSection;
     /**
      * Adds a field to a section (creates the section if it does not exist).
-     * @param {Field} field
+     * @param {MetaField} field
      * @param {string} [sectionName='main']
      */
-    addField(field: Field, sectionName?: string): void;
+    addField(field: MetaField, sectionName?: string): void;
     /**
      * Retrieves a field from a section.
      * @param {string} name
      * @param {string} [sectionName='main']
-     * @returns {Field|null}
+     * @returns {MetaField|null}
      */
-    getField(name: string, sectionName?: string): Field | null;
+    getField(name: string, sectionName?: string): MetaField | null;
     /**
      * Checks if a field exists in a section.
      * @param {string} name
@@ -414,10 +414,10 @@ export class Record {
     hasField(name: string, sectionName?: string): boolean;
     /**
      * Sets a field in a section (creates section if needed, overwrites existing field).
-     * @param {Field} field
+     * @param {MetaField} field
      * @param {string} [sectionName='main']
      */
-    setField(field: Field, sectionName?: string): void;
+    setField(field: MetaField, sectionName?: string): void;
     /**
      * Deletes a field from a section.
      * @param {string} name
@@ -428,9 +428,9 @@ export class Record {
     /**
      * Returns all fields in a section.
      * @param {string} [sectionName='main']
-     * @returns {Field[]}
+     * @returns {MetaField[]}
      */
-    getFields(sectionName?: string): Field[];
+    getFields(sectionName?: string): MetaField[];
     /**
      * Checks if an attribute exists on the record.
      * @param {string} name
@@ -469,7 +469,7 @@ export class Record {
      *   verb: string|null,
      *   description: string|null,
      *   attributes: Array<[string, string]>,
-     *   sections: Array<ReturnType<Section['toJSON']>>
+     *   sections: Array<ReturnType<MetaSection['toJSON']>>
      * }}
      */
     toJSON(): {
@@ -480,17 +480,17 @@ export class Record {
         verb: string | null;
         description: string | null;
         attributes: Array<[string, string]>;
-        sections: Array<ReturnType<Section["toJSON"]>>;
+        sections: Array<ReturnType<MetaSection["toJSON"]>>;
     };
     /**
      * Creates a deep copy of the record.
-     * @returns {Record}
+     * @returns {MetaRecord}
      */
-    clone(): Record;
+    clone(): MetaRecord;
 }
 
-/* From tree\section.d.ts */
-export class Section {
+/* From tree\meta-section.d.ts */
+export class MetaSection {
     /**
      * Creates a new Section.
      * @param {string} name - Section name (no spaces, allowed: letters, digits, underscore, dot, hyphen).
@@ -503,18 +503,18 @@ export class Section {
     }, description?: string | null);
     /** @type {string} */
     name: string;
-    /** @type {Map<string, Field>} */
-    fields: Map<string, Field>;
+    /** @type {Map<string, MetaField>} */
+    fields: Map<string, MetaField>;
     /** @type {Map<string, string>} */
     attributes: Map<string, string>;
     /** @type {string|null} */
     description: string | null;
     /**
      * Adds a field. Throws if a field with the same name already exists.
-     * @param {Field} field
+     * @param {MetaField} field
      * @throws {Error} When field name already exists.
      */
-    addField(field: Field): void;
+    addField(field: MetaField): void;
     /**
      * Checks if a field exists.
      * @param {string} name
@@ -524,14 +524,14 @@ export class Section {
     /**
      * Retrieves a field by name.
      * @param {string} name
-     * @returns {Field|null}
+     * @returns {MetaField|null}
      */
-    getField(name: string): Field | null;
+    getField(name: string): MetaField | null;
     /**
      * Sets a field (overwrites if exists).
-     * @param {Field} field
+     * @param {MetaField} field
      */
-    setField(field: Field): void;
+    setField(field: MetaField): void;
     /**
      * Deletes a field.
      * @param {string} name
@@ -539,9 +539,9 @@ export class Section {
     deleteField(name: string): void;
     /**
      * Returns all fields in the section.
-     * @returns {Field[]}
+     * @returns {MetaField[]}
      */
-    getFields(): Field[];
+    getFields(): MetaField[];
     /**
      * Returns all field names.
      * @returns {string[]}
@@ -582,20 +582,20 @@ export class Section {
      *   name: string,
      *   description: string|null,
      *   attributes: Array<[string, string]>,
-     *   fields: Array<ReturnType<Field['toJSON']>>
+     *   fields: Array<ReturnType<MetaField['toJSON']>>
      * }}
      */
     toJSON(): {
         name: string;
         description: string | null;
         attributes: Array<[string, string]>;
-        fields: Array<ReturnType<Field["toJSON"]>>;
+        fields: Array<ReturnType<MetaField["toJSON"]>>;
     };
     /**
      * Creates a deep copy of the section.
-     * @returns {Section}
+     * @returns {MetaSection}
      */
-    clone(): Section;
+    clone(): MetaSection;
     /**
      * Renames the section.
      * @param {string} newName
@@ -609,20 +609,20 @@ export class Section {
     getName(): string;
 }
 
-/* From tree\tree.d.ts */
-export class Tree {
-    /** @type {Map<string, Record>} */
-    records: Map<string, Record>;
+/* From tree\meta-tree.d.ts */
+export class MetaTree {
+    /** @type {Map<string, MetaRecord>} */
+    records: Map<string, MetaRecord>;
     /**
      * Adds a new record to the tree.
      * @param {string} entityName
      * @param {string|null} [propertyName=null]
      * @param {string|null} [actionName=null]
      * @param {string|null} [description=null]
-     * @returns {Record}
+     * @returns {MetaRecord}
      * @throws {Error} When a record with the same full name already exists.
      */
-    addRecord(entityName: string, propertyName?: string | null, actionName?: string | null, description?: string | null): Record;
+    addRecord(entityName: string, propertyName?: string | null, actionName?: string | null, description?: string | null): MetaRecord;
     /**
      * Checks if a record exists by its full name.
      * @param {string} recordFullName
@@ -632,9 +632,9 @@ export class Tree {
     /**
      * Retrieves a record by its full name.
      * @param {string} recordFullName
-     * @returns {Record|null}
+     * @returns {MetaRecord|null}
      */
-    getRecord(recordFullName: string): Record | null;
+    getRecord(recordFullName: string): MetaRecord | null;
     /**
      * Deletes a record.
      * @param {string} recordFullName
@@ -642,14 +642,14 @@ export class Tree {
     deleteRecord(recordFullName: string): void;
     /**
      * Returns all records in the tree.
-     * @returns {Record[]}
+     * @returns {MetaRecord[]}
      */
-    getRecords(): Record[];
+    getRecords(): MetaRecord[];
     /**
      * Sets a record (overwrites if exists).
-     * @param {Record} record
+     * @param {MetaRecord} record
      */
-    setRecord(record: Record): void;
+    setRecord(record: MetaRecord): void;
     /**
      * Returns all record full names.
      * @returns {string[]}
@@ -662,9 +662,9 @@ export class Tree {
     stringify(): string;
     /**
      * Returns a JSON-compatible object.
-     * @returns {{ records: Array<ReturnType<Record['toJSON']>> }}
+     * @returns {{ records: Array<ReturnType<MetaRecord['toJSON']>> }}
      */
     toJSON(): {
-        records: Array<ReturnType<Record["toJSON"]>>;
+        records: Array<ReturnType<MetaRecord["toJSON"]>>;
     };
 }

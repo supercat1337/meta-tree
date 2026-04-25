@@ -1,11 +1,11 @@
 // @ts-check
 
-import { Field } from './field.js';
-import { Section } from './section.js';
+import { MetaField } from './meta-field.js';
+import { MetaSection } from './meta-section.js';
 import { getVerbFromActionName } from '../tools/tools.js';
 import { stringifyHead } from '../tools/head-parser.js';
 
-export class Record {
+export class MetaRecord {
     /** @type {string} */
     entityName;
     /** @type {string|null} */
@@ -14,9 +14,9 @@ export class Record {
     actionName;
     /** @type {"get"|"set"|"add"|"delete"|"list"|"check"|"other"|null} */
     verb;
-    /** @type {Map<string, Section>} */
+    /** @type {Map<string, MetaSection>} */
     sections;
-    /** @type {Section} */
+    /** @type {MetaSection} */
     mainSection;
     /** @type {string|null} */
     description;
@@ -73,7 +73,7 @@ export class Record {
         this.description = description;
 
         this.sections = new Map();
-        this.mainSection = new Section('main');
+        this.mainSection = new MetaSection('main');
         this.sections.set('main', this.mainSection);
 
         for (const [k, v] of Object.entries(attributes)) this.setAttribute(k, v);
@@ -95,12 +95,12 @@ export class Record {
      * @param {string} name - Section name (unique).
      * @param {Object<string, string>} [attributes] - Section attributes.
      * @param {string|null} [description] - Section description.
-     * @returns {Section} The newly created section.
+     * @returns {MetaSection} The newly created section.
      * @throws {Error} When section already exists.
      */
     addSection(name, attributes = {}, description = null) {
         if (this.sections.has(name)) throw new Error(`Section already exists: ${name}`);
-        const section = new Section(name, attributes, description);
+        const section = new MetaSection(name, attributes, description);
         this.sections.set(name, section);
         if (name === 'main') this.mainSection = section;
         return section;
@@ -109,7 +109,7 @@ export class Record {
     /**
      * Retrieves a section by name.
      * @param {string} name
-     * @returns {Section|null}
+     * @returns {MetaSection|null}
      */
     getSection(name) {
         return this.sections.get(name) || null;
@@ -136,7 +136,7 @@ export class Record {
 
     /**
      * Sets a section (overwrites if exists). Updates mainSection reference if name is 'main'.
-     * @param {Section} section
+     * @param {MetaSection} section
      */
     setSection(section) {
         this.sections.set(section.name, section);
@@ -145,7 +145,7 @@ export class Record {
 
     /**
      * Returns all sections.
-     * @returns {Section[]}
+     * @returns {MetaSection[]}
      */
     getSections() {
         return Array.from(this.sections.values());
@@ -153,7 +153,7 @@ export class Record {
 
     /**
      * Returns the main section.
-     * @returns {Section}
+     * @returns {MetaSection}
      */
     getMainSection() {
         return this.mainSection;
@@ -161,7 +161,7 @@ export class Record {
 
     /**
      * Adds a field to a section (creates the section if it does not exist).
-     * @param {Field} field
+     * @param {MetaField} field
      * @param {string} [sectionName='main']
      */
     addField(field, sectionName = 'main') {
@@ -174,7 +174,7 @@ export class Record {
      * Retrieves a field from a section.
      * @param {string} name
      * @param {string} [sectionName='main']
-     * @returns {Field|null}
+     * @returns {MetaField|null}
      */
     getField(name, sectionName = 'main') {
         const section = this.sections.get(sectionName);
@@ -194,7 +194,7 @@ export class Record {
 
     /**
      * Sets a field in a section (creates section if needed, overwrites existing field).
-     * @param {Field} field
+     * @param {MetaField} field
      * @param {string} [sectionName='main']
      */
     setField(field, sectionName = 'main') {
@@ -220,7 +220,7 @@ export class Record {
     /**
      * Returns all fields in a section.
      * @param {string} [sectionName='main']
-     * @returns {Field[]}
+     * @returns {MetaField[]}
      */
     getFields(sectionName = 'main') {
         const section = this.sections.get(sectionName);
@@ -287,7 +287,7 @@ export class Record {
      *   verb: string|null,
      *   description: string|null,
      *   attributes: Array<[string, string]>,
-     *   sections: Array<ReturnType<Section['toJSON']>>
+     *   sections: Array<ReturnType<MetaSection['toJSON']>>
      * }}
      */
     toJSON() {
@@ -305,10 +305,10 @@ export class Record {
 
     /**
      * Creates a deep copy of the record.
-     * @returns {Record}
+     * @returns {MetaRecord}
      */
     clone() {
-        const record = new Record(
+        const record = new MetaRecord(
             this.entityName,
             this.propertyName,
             this.actionName,

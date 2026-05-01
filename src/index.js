@@ -1,6 +1,6 @@
 // @ts-check
 
-import { formatLocationInTree } from './tools/tools.js';
+import { formatLocationInTree, getVerbFromActionName } from './tools/tools.js';
 import { treeFromStringWithMacros } from './tools/treeFromString.js';
 
 export { MetaTree } from './tree/meta-tree.js';
@@ -21,4 +21,4 @@ export function expandMacros(dslString) {
     return tree.stringify();
 }
 
-export { formatLocationInTree };
+export { formatLocationInTree, getVerbFromActionName };

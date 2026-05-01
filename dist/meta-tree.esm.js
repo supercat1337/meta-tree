@@ -1703,6 +1703,19 @@ class MetaTree {
             records: Array.from(this.records.values()).map(r => r.toJSON()),
         };
     }
+
+    /**
+     *  * Clones tree
+     * @returns {MetaTree}
+     */
+    cloneTree() {
+        let tree = new MetaTree();
+        for (const record of this.getRecords()) {
+            let cloneRecord = record.clone();
+            tree.setRecord(cloneRecord);
+        }
+        return tree;
+    }
 }
 
 // @ts-check
@@ -1719,4 +1732,4 @@ function expandMacros(dslString) {
     return tree.stringify();
 }
 
-export { MetaField, MetaRecord, MetaSection, MetaTree, expandMacros, formatLocationInTree, preprocessMacros, treeFromString, treeFromStringWithMacros };
+export { MetaField, MetaRecord, MetaSection, MetaTree, expandMacros, formatLocationInTree, getVerbFromActionName, preprocessMacros, treeFromString, treeFromStringWithMacros };

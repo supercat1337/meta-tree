@@ -667,4 +667,9 @@ export class MetaTree {
     toJSON(): {
         records: Array<ReturnType<MetaRecord["toJSON"]>>;
     };
+    /**
+     *  * Clones tree
+     * @returns {MetaTree}
+     */
+    cloneTree(): MetaTree;
 }

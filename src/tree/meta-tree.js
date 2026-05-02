@@ -1,5 +1,4 @@
 // @ts-check
-
 import { MetaRecord } from './meta-record.js';
 
 export class MetaTree {
@@ -96,7 +95,7 @@ export class MetaTree {
     }
 
     /**
-     *  * Clones tree
+     * Clones tree
      * @returns {MetaTree}
      */
     cloneTree() {
@@ -106,5 +105,39 @@ export class MetaTree {
             tree.setRecord(cloneRecord);
         }
         return tree;
+    }
+
+    /**
+     * Finds records in the tree by entity name and verb.
+     * @param {string|RegExp} entityName
+     * @param {string|null} [verb]
+     * @returns {import('@supercat1337/meta-tree').MetaRecord[]}
+     */
+    findRecords(entityName, verb = null) {
+        /** @type {import('@supercat1337/meta-tree').MetaRecord[]} */
+        const result = [];
+        for (const record of this.getRecords()) {
+            let foundEntity = false;
+
+            if (entityName instanceof RegExp) {
+                foundEntity = entityName.test(record.entityName);
+            } else if (typeof entityName === 'string') {
+                foundEntity = record.entityName === entityName;
+            }
+
+            if (!foundEntity) continue;
+
+            if (!verb) {
+                result.push(record);
+                continue;
+            }
+
+            if (record.verb === verb) {
+                result.push(record);
+                continue;
+            }
+        }
+
+        return result;
     }
 }

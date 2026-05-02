@@ -32,7 +32,13 @@ export class MetaRecord {
      * @param {Object<string, string>} [attributes] - Record attributes.
      * @throws {Error} When any name is invalid.
      */
-    constructor(entityName, propertyName = null, actionName = null, description = null, attributes = {}) {
+    constructor(
+        entityName,
+        propertyName = null,
+        actionName = null,
+        description = null,
+        attributes = {}
+    ) {
         if (typeof entityName !== 'string' || entityName.length === 0) {
             throw new Error(`Entity name must be a non-empty string, got "${entityName}"`);
         }
@@ -323,5 +329,61 @@ export class MetaRecord {
             }
         }
         return record;
+    }
+
+    /**
+     * Attempts to determine the verb of an action from its name.
+     * @param {string|null} actionName - The name of the action.
+     * @returns {"get"|"set"|"add"|"delete"|"list"|"check"|"other"|null} The verb of the action, or null if it could not be determined.
+     */
+    static getVerbFromActionName(actionName) {
+        return getVerbFromActionName(actionName);
+    }
+
+    /**
+     * Parses a full record name into its components.
+     *
+     * The name format is `entity`, `entity.property`, or `entity.property.action`.
+     * The last segment is always treated as the action name when present.
+     *
+     * @static
+     * @param {string} name - The full record name (e.g., "user", "user.profile", "user.profile.update").
+     * @returns {{entityName: string, propertyName: string|null, actionName: string|null}} An object containing:
+     *   - `entityName`: The entity (first segment)
+     *   - `propertyName`: The optional property (middle segments, or null if none)
+     *   - `actionName`: The optional action (last segment, or null if none)
+     *
+     * @example
+     * MetaRecord.parseName('user.profile.update');
+     * // returns { entityName: 'user', propertyName: 'profile', actionName: 'update' }
+     *
+     * @example
+     * MetaRecord.parseName('user.profile');
+     * // returns { entityName: 'user', propertyName: null, actionName: 'profile' }
+     *
+     * @example
+     * MetaRecord.parseName('user');
+     * // returns { entityName: 'user', propertyName: null, actionName: null }
+     */
+    static parseName(name) {
+        // name is like "entity.property.action" or "entity.property" or "entity"
+        const parts = name.split('.');
+        const entityName = parts[0];
+        let propertyName = null;
+        let actionName = null;
+        if (parts.length > 1) {
+            actionName = parts[parts.length - 1];
+            if (parts.length > 2) {
+                propertyName = parts.slice(1, -1).join('.');
+            } else {
+                propertyName = null;
+            }
+        }
+
+        return {
+            entityName,
+            propertyName,
+            actionName,
+        };
     }
 }

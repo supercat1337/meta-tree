@@ -134,19 +134,8 @@ export function treeFromString(treeString) {
         try {
             if (isRecordDeclaration(line)) {
                 const { name, attributes, description } = parseHead(line);
-                // name is like "entity.property.action" or "entity.property" or "entity"
-                const parts = name.split('.');
-                const entityName = parts[0];
-                let propertyName = null;
-                let actionName = null;
-                if (parts.length > 1) {
-                    actionName = parts[parts.length - 1];
-                    if (parts.length > 2) {
-                        propertyName = parts.slice(1, -1).join('.');
-                    } else {
-                        propertyName = null;
-                    }
-                }
+                let { entityName, propertyName, actionName } = MetaRecord.parseName(name);
+
                 currentRecord = tree.addRecord(entityName, propertyName, actionName, description);
                 for (const [k, v] of attributes) currentRecord.setAttribute(k, v);
 

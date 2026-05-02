@@ -1,6 +1,6 @@
 // @ts-check
 
-import { parseHead, stringifyHead } from '../tools/head-parser.js';
+import { stringifyHead } from '../tools/head-parser.js';
 
 export class MetaField {
     /** @type {string} */

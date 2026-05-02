@@ -316,6 +316,42 @@ export class MetaField {
 /* From tree\meta-record.d.ts */
 export class MetaRecord {
     /**
+     * Attempts to determine the verb of an action from its name.
+     * @param {string|null} actionName - The name of the action.
+     * @returns {"get"|"set"|"add"|"delete"|"list"|"check"|"other"|null} The verb of the action, or null if it could not be determined.
+     */
+    static getVerbFromActionName(actionName: string | null): "get" | "set" | "add" | "delete" | "list" | "check" | "other" | null;
+    /**
+     * Parses a full record name into its components.
+     *
+     * The name format is `entity`, `entity.property`, or `entity.property.action`.
+     * The last segment is always treated as the action name when present.
+     *
+     * @static
+     * @param {string} name - The full record name (e.g., "user", "user.profile", "user.profile.update").
+     * @returns {{entityName: string, propertyName: string|null, actionName: string|null}} An object containing:
+     *   - `entityName`: The entity (first segment)
+     *   - `propertyName`: The optional property (middle segments, or null if none)
+     *   - `actionName`: The optional action (last segment, or null if none)
+     *
+     * @example
+     * MetaRecord.parseName('user.profile.update');
+     * // returns { entityName: 'user', propertyName: 'profile', actionName: 'update' }
+     *
+     * @example
+     * MetaRecord.parseName('user.profile');
+     * // returns { entityName: 'user', propertyName: null, actionName: 'profile' }
+     *
+     * @example
+     * MetaRecord.parseName('user');
+     * // returns { entityName: 'user', propertyName: null, actionName: null }
+     */
+    static parseName(name: string): {
+        entityName: string;
+        propertyName: string | null;
+        actionName: string | null;
+    };
+    /**
      * Creates a new Record.
      * @param {string} entityName - Entity name (letters, digits, underscore, hyphen).
      * @param {string|null} [propertyName] - Property name (optional, may contain dots).
@@ -668,8 +704,15 @@ export class MetaTree {
         records: Array<ReturnType<MetaRecord["toJSON"]>>;
     };
     /**
-     *  * Clones tree
+     * Clones tree
      * @returns {MetaTree}
      */
     cloneTree(): MetaTree;
+    /**
+     * Finds records in the tree by entity name and verb.
+     * @param {string|RegExp} entityName
+     * @param {string|null} [verb]
+     * @returns {MetaRecord[]}
+     */
+    findRecords(entityName: string | RegExp, verb?: string | null): MetaRecord[];
 }

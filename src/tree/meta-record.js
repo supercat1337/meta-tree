@@ -270,16 +270,40 @@ export class MetaRecord {
 
     /**
      * Returns the DSL string representation of the record.
-     * @returns {string}
+     *
+     * @param {Object} [options] - Formatting options.
+     * @param {boolean} [options.addEmptyLineBeforeNamedSections=true] - If `true`, inserts an empty line before each named section (except the first one) to improve readability.
+     * @param {string} [options.padding='    '] - Base indentation string (4 spaces by default). This is passed to sections.
+     * @returns {string} DSL string of the record.
      */
-    stringify() {
+    stringify(options = {}) {
+        const { addEmptyLineBeforeNamedSections = true, padding = '    ' } = options;
+
         const fullName = this.getFullName();
         const header = stringifyHead(fullName, this.attributes, this.description);
         const parts = [header];
+
+        // Main section: fields are indented with `padding`
+        const mainStr = this.mainSection.stringify(padding, null);
+        if (mainStr) parts.push(mainStr);
+
+        // Named sections (skip 'main')
         for (const section of this.sections.values()) {
-            const secStr = section.stringify();
+            if (section.name === 'main') continue;
+
+            // Optionally insert an empty line before the section
+            if (
+                addEmptyLineBeforeNamedSections &&
+                parts.length > 0 &&
+                parts[parts.length - 1] !== ''
+            ) {
+                parts.push('');
+            }
+
+            const secStr = section.stringify(padding, null);
             if (secStr) parts.push(secStr);
         }
+
         return parts.join('\n');
     }
 

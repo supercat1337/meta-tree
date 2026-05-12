@@ -492,9 +492,16 @@ export class MetaRecord {
     setAttribute(name: string, value: string): void;
     /**
      * Returns the DSL string representation of the record.
-     * @returns {string}
+     *
+     * @param {Object} [options] - Formatting options.
+     * @param {boolean} [options.addEmptyLineBeforeNamedSections=true] - If `true`, inserts an empty line before each named section (except the first one) to improve readability.
+     * @param {string} [options.padding='    '] - Base indentation string (4 spaces by default). This is passed to sections.
+     * @returns {string} DSL string of the record.
      */
-    stringify(): string;
+    stringify(options?: {
+        addEmptyLineBeforeNamedSections?: boolean;
+        padding?: string;
+    }): string;
     /**
      * Returns a JSON-compatible object.
      * @returns {{
@@ -608,10 +615,14 @@ export class MetaSection {
     setAttribute(name: string, value: string): void;
     /**
      * Returns the DSL string representation of the section.
-     * @param {string} [padding='    '] - Indentation string.
-     * @returns {string}
+     *
+     * @param {string} [padding='    '] - Indentation for the section header (if named) and base indentation for fields.
+     * @param {string|null} [fieldIndent=null] - Explicit indentation for fields. If `null`, it is auto‑determined:
+     *   - For the 'main' section: `fieldIndent = padding`
+     *   - For named sections: `fieldIndent = padding + '    '`
+     * @returns {string} DSL string of the section.
      */
-    stringify(padding?: string): string;
+    stringify(padding?: string, fieldIndent?: string | null): string;
     /**
      * Returns a JSON-compatible object.
      * @returns {{
@@ -693,9 +704,16 @@ export class MetaTree {
     getRecordNames(): string[];
     /**
      * Serializes the entire tree to a DSL string.
-     * @returns {string}
+     *
+     * @param {Object} [options] - Formatting options passed to each record's `stringify` method.
+     * @param {boolean} [options.addEmptyLineBeforeNamedSections=true] - Whether to add empty lines before named sections inside each record.
+     * @param {string} [options.padding='    '] - Base indentation string.
+     * @returns {string} DSL string of the whole tree.
      */
-    stringify(): string;
+    stringify(options?: {
+        addEmptyLineBeforeNamedSections?: boolean;
+        padding?: string;
+    }): string;
     /**
      * Returns a JSON-compatible object.
      * @returns {{ records: Array<ReturnType<MetaRecord['toJSON']>> }}

@@ -137,16 +137,31 @@ export class MetaSection {
 
     /**
      * Returns the DSL string representation of the section.
-     * @param {string} [padding='    '] - Indentation string.
-     * @returns {string}
+     *
+     * @param {string} [padding='    '] - Indentation for the section header (if named) and base indentation for fields.
+     * @param {string|null} [fieldIndent=null] - Explicit indentation for fields. If `null`, it is auto‑determined:
+     *   - For the 'main' section: `fieldIndent = padding`
+     *   - For named sections: `fieldIndent = padding + '    '`
+     * @returns {string} DSL string of the section.
      */
-    stringify(padding = '    ') {
+    stringify(padding = '    ', fieldIndent = null) {
+        // Determine effective field indentation
+        let effectiveFieldIndent;
+        if (fieldIndent === null) {
+            effectiveFieldIndent = this.name === 'main' ? padding : padding + '    ';
+        } else {
+            effectiveFieldIndent = fieldIndent;
+        }
+
         const fieldsArray = this.getFields().map(f => f.stringify());
         if (fieldsArray.length === 0 && this.name === 'main') return '';
-        const fieldsStr = fieldsArray.map(f => padding + f).join('\n');
+
+        const fieldsStr = fieldsArray.map(f => effectiveFieldIndent + f).join('\n');
+
+        // Main section has no header
         if (this.name === 'main') return fieldsStr;
 
-        // For named sections, add padding before the header
+        // Named section: header + fields
         const header = stringifyHead(`@${this.name}`, this.attributes, this.description);
         const indentedHeader = padding + header;
         if (fieldsStr) return `${indentedHeader}\n${fieldsStr}`;

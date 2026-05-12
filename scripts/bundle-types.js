@@ -3,7 +3,7 @@ import path from 'path';
 
 const tempDir = './dist/types-temp/src';
 const outputFile = './dist/meta-tree.esm.d.ts';
-const headerFile = './index.d.ts';
+const headerFile = './src/types.d.ts';
 
 function bundleTypes() {
     // 1. Читаем заголовок (ваши интерфейсы и declare global)

@@ -1204,16 +1204,31 @@ class MetaSection {
 
     /**
      * Returns the DSL string representation of the section.
-     * @param {string} [padding='    '] - Indentation string.
-     * @returns {string}
+     *
+     * @param {string} [padding='    '] - Indentation for the section header (if named) and base indentation for fields.
+     * @param {string|null} [fieldIndent=null] - Explicit indentation for fields. If `null`, it is auto‑determined:
+     *   - For the 'main' section: `fieldIndent = padding`
+     *   - For named sections: `fieldIndent = padding + '    '`
+     * @returns {string} DSL string of the section.
      */
-    stringify(padding = '    ') {
+    stringify(padding = '    ', fieldIndent = null) {
+        // Determine effective field indentation
+        let effectiveFieldIndent;
+        if (fieldIndent === null) {
+            effectiveFieldIndent = this.name === 'main' ? padding : padding + '    ';
+        } else {
+            effectiveFieldIndent = fieldIndent;
+        }
+
         const fieldsArray = this.getFields().map(f => f.stringify());
         if (fieldsArray.length === 0 && this.name === 'main') return '';
-        const fieldsStr = fieldsArray.map(f => padding + f).join('\n');
+
+        const fieldsStr = fieldsArray.map(f => effectiveFieldIndent + f).join('\n');
+
+        // Main section has no header
         if (this.name === 'main') return fieldsStr;
 
-        // For named sections, add padding before the header
+        // Named section: header + fields
         const header = stringifyHead(`@${this.name}`, this.attributes, this.description);
         const indentedHeader = padding + header;
         if (fieldsStr) return `${indentedHeader}\n${fieldsStr}`;
@@ -1541,16 +1556,40 @@ class MetaRecord {
 
     /**
      * Returns the DSL string representation of the record.
-     * @returns {string}
+     *
+     * @param {Object} [options] - Formatting options.
+     * @param {boolean} [options.addEmptyLineBeforeNamedSections=true] - If `true`, inserts an empty line before each named section (except the first one) to improve readability.
+     * @param {string} [options.padding='    '] - Base indentation string (4 spaces by default). This is passed to sections.
+     * @returns {string} DSL string of the record.
      */
-    stringify() {
+    stringify(options = {}) {
+        const { addEmptyLineBeforeNamedSections = true, padding = '    ' } = options;
+
         const fullName = this.getFullName();
         const header = stringifyHead(fullName, this.attributes, this.description);
         const parts = [header];
+
+        // Main section: fields are indented with `padding`
+        const mainStr = this.mainSection.stringify(padding, null);
+        if (mainStr) parts.push(mainStr);
+
+        // Named sections (skip 'main')
         for (const section of this.sections.values()) {
-            const secStr = section.stringify();
+            if (section.name === 'main') continue;
+
+            // Optionally insert an empty line before the section
+            if (
+                addEmptyLineBeforeNamedSections &&
+                parts.length > 0 &&
+                parts[parts.length - 1] !== ''
+            ) {
+                parts.push('');
+            }
+
+            const secStr = section.stringify(padding, null);
             if (secStr) parts.push(secStr);
         }
+
         return parts.join('\n');
     }
 
@@ -1736,12 +1775,18 @@ class MetaTree {
 
     /**
      * Serializes the entire tree to a DSL string.
-     * @returns {string}
+     *
+     * @param {Object} [options] - Formatting options passed to each record's `stringify` method.
+     * @param {boolean} [options.addEmptyLineBeforeNamedSections=true] - Whether to add empty lines before named sections inside each record.
+     * @param {string} [options.padding='    '] - Base indentation string.
+     * @returns {string} DSL string of the whole tree.
      */
-    stringify() {
-        return Array.from(this.records.values())
-            .map(record => record.stringify())
-            .join('\n\n');
+    stringify(options = {}) {
+        const { addEmptyLineBeforeNamedSections = true, padding = '    ' } = options;
+        const recordsArray = Array.from(this.records.values());
+        return recordsArray
+            .map(record => record.stringify({ addEmptyLineBeforeNamedSections, padding }))
+            .join('\n\n'); // separate records by exactly one blank line
     }
 
     /**

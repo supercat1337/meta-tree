@@ -335,7 +335,7 @@ links.get
 
 ### 8.4. Serialization and Parsing Utilities
 
-- `tree.stringify()` – serializes a Tree object to DSL **without** macro definitions (all macros are expanded).
+- `tree.stringify(options?)` – serializes a Tree object to DSL **without** macro definitions. Accepts optional formatting options (see 8.5).
 - `treeFromString(dsl)` – parses a DSL string that **does not contain** macro definitions.
 - `treeFromStringWithMacros(dsl)` – preprocesses macros, then parses the DSL string. **The `verb` of each record is computed after macro expansion.**
 - `preprocessMacros(dsl)` – performs standalone macro expansion on a DSL string, returning a new string with macros replaced (but without syntax validation).
@@ -347,26 +347,94 @@ links.get
 
 > **Note for JavaScript users:** In the library implementation, the `Tree` class is named `MetaTree`, but the `stringify()` method and parsing functions behave identically to the description above.
 
+### 8.5. Formatting Options for `stringify`
+
+All `stringify()` methods (`MetaTree.stringify`, `MetaRecord.stringify`, `MetaSection.stringify`) accept an optional `options` object to control output layout.
+
+#### Options
+
+| Option                            | Type      | Default             | Description                                                                                  |
+| --------------------------------- | --------- | ------------------- | -------------------------------------------------------------------------------------------- |
+| `addEmptyLineBeforeNamedSections` | `boolean` | `true`              | Inserts an empty line before each named section (`@returns`, `@request`, …) inside a record. |
+| `padding`                         | `string`  | `'    '` (4 spaces) | Base indentation string used for the main section fields and section headers.                |
+
+#### Examples
+
+**Default formatting (recommended):**
+
+```dsl
+user.profile.update
+    username    maxLength="32"
+    password    minLength="8"
+
+    @returns
+        result    boolean
+```
+
+**Compact formatting (no empty lines):**
+
+```javascript
+tree.stringify({ addEmptyLineBeforeNamedSections: false });
+```
+
+Produces:
+
+```dsl
+user.profile.update
+    username    maxLength="32"
+    password    minLength="8"
+    @returns
+        result    boolean
+```
+
+**Custom indentation:**
+
+```javascript
+tree.stringify({ padding: '  ' });
+```
+
+Produces:
+
+```dsl
+user.profile.update
+  username    maxLength="32"
+  password    minLength="8"
+
+  @returns
+    result    boolean
+```
+
+#### Notes
+
+- The `addEmptyLineBeforeNamedSections` option only affects named sections (e.g., `@returns`). The implicit `main` section never gets an empty line before it.
+- Empty lines are never inserted before the first section of a record.
+- When `addEmptyLineBeforeNamedSections` is `false`, sections and fields remain visually compact but still correctly indented.
+- The `padding` value is passed to all nested sections; fields inside named sections receive `padding + '    '` by default, creating a clear hierarchy.
+
+```
+
 ## 9. Complete Example (with Macros, Correct Syntax)
 
 ```
+
 #define-block pagination
-    [page="1"]    type="int" // Page number
-    [limit="20"]  type="int" // Items per page
+[page="1"] type="int" // Page number
+[limit="20"] type="int" // Items per page
 #end
 
 #define-block baseMeta
-    request_id    type="uuid"
-    timestamp     type="datetime"
+request_id type="uuid"
+timestamp type="datetime"
 #end
 
 listOrders method="GET" // Method to list orders
-    #baseMeta
-    #pagination()
-    filter        type="string"
+#baseMeta
+#pagination()
+filter type="string"
 
     @returns
         items     array="true" ref="Order"
+
 ```
 
 **Key points in this example:**
@@ -416,3 +484,4 @@ When writing a code generator from Meta-Tree DSL, follow these conventions:
 - Use lowerCamelCase for entity, property, and action names (e.g., `userProfile`, `orderLine`).
 
 By following this guide, both humans and AI can reliably create and interpret Meta-Tree DSL files for API specifications, data schemas, or any hierarchical structure.
+```

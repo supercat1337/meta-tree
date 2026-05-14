@@ -78,12 +78,12 @@ export class MetaTree {
      * Serializes the entire tree to a DSL string.
      *
      * @param {Object} [options] - Formatting options passed to each record's `stringify` method.
-     * @param {boolean} [options.addEmptyLineBeforeNamedSections=true] - Whether to add empty lines before named sections inside each record.
+     * @param {boolean} [options.addEmptyLineBeforeNamedSections=false] - Whether to add empty lines before named sections inside each record.
      * @param {string} [options.padding='    '] - Base indentation string.
      * @returns {string} DSL string of the whole tree.
      */
     stringify(options = {}) {
-        const { addEmptyLineBeforeNamedSections = true, padding = '    ' } = options;
+        const { addEmptyLineBeforeNamedSections = false, padding = '    ' } = options;
         const recordsArray = Array.from(this.records.values());
         return recordsArray
             .map(record => record.stringify({ addEmptyLineBeforeNamedSections, padding }))

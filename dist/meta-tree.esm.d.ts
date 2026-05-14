@@ -494,7 +494,7 @@ export class MetaRecord {
      * Returns the DSL string representation of the record.
      *
      * @param {Object} [options] - Formatting options.
-     * @param {boolean} [options.addEmptyLineBeforeNamedSections=true] - If `true`, inserts an empty line before each named section (except the first one) to improve readability.
+     * @param {boolean} [options.addEmptyLineBeforeNamedSections=false] - If `true`, inserts an empty line before each named section (except the first one) to improve readability.
      * @param {string} [options.padding='    '] - Base indentation string (4 spaces by default). This is passed to sections.
      * @returns {string} DSL string of the record.
      */
@@ -654,6 +654,10 @@ export class MetaSection {
      * @returns {string}
      */
     getName(): string;
+    /**
+     * Clears the section.
+     */
+    clearSection(): void;
 }
 
 /* From tree\meta-tree.d.ts */
@@ -706,7 +710,7 @@ export class MetaTree {
      * Serializes the entire tree to a DSL string.
      *
      * @param {Object} [options] - Formatting options passed to each record's `stringify` method.
-     * @param {boolean} [options.addEmptyLineBeforeNamedSections=true] - Whether to add empty lines before named sections inside each record.
+     * @param {boolean} [options.addEmptyLineBeforeNamedSections=false] - Whether to add empty lines before named sections inside each record.
      * @param {string} [options.padding='    '] - Base indentation string.
      * @returns {string} DSL string of the whole tree.
      */

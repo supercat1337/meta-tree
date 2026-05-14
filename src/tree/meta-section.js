@@ -219,4 +219,11 @@ export class MetaSection {
     getName() {
         return this.name;
     }
+
+    /**
+     * Clears the section.
+     */
+    clearSection() {
+        this.fields.clear();
+    }
 }

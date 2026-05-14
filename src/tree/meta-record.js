@@ -272,12 +272,12 @@ export class MetaRecord {
      * Returns the DSL string representation of the record.
      *
      * @param {Object} [options] - Formatting options.
-     * @param {boolean} [options.addEmptyLineBeforeNamedSections=true] - If `true`, inserts an empty line before each named section (except the first one) to improve readability.
+     * @param {boolean} [options.addEmptyLineBeforeNamedSections=false] - If `true`, inserts an empty line before each named section (except the first one) to improve readability.
      * @param {string} [options.padding='    '] - Base indentation string (4 spaces by default). This is passed to sections.
      * @returns {string} DSL string of the record.
      */
     stringify(options = {}) {
-        const { addEmptyLineBeforeNamedSections = true, padding = '    ' } = options;
+        const { addEmptyLineBeforeNamedSections = false, padding = '    ' } = options;
 
         const fullName = this.getFullName();
         const header = stringifyHead(fullName, this.attributes, this.description);
